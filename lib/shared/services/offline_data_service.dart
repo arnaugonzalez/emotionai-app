@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:logger/logger.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import '../services/sqlite_helper.dart';
 import '../../data/api_service.dart';
 import '../../data/models/emotional_record.dart';
@@ -65,10 +65,7 @@ class OfflineDataService {
   /// Check connectivity by trying to reach backend
   Future<bool> _checkConnectivity() async {
     try {
-      final response = await http
-          .get(Uri.parse(ApiConfig.healthUrl()))
-          .timeout(const Duration(seconds: 5));
-
+      final response = await Dio().get(ApiConfig.healthUrl());
       final isOnline = response.statusCode == 200;
       final newStatus =
           isOnline ? ConnectivityStatus.online : ConnectivityStatus.offline;

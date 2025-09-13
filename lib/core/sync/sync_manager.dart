@@ -8,7 +8,7 @@ library;
 import 'dart:async';
 import 'dart:isolate';
 import 'package:logger/logger.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import '../../config/api_config.dart';
 import '../../data/api_service.dart';
 import '../../shared/services/sqlite_helper.dart';
@@ -559,10 +559,7 @@ class SyncManager {
   /// Check connectivity status
   Future<void> _checkConnectivity() async {
     try {
-      final response = await http
-          .get(Uri.parse(ApiConfig.healthUrl()))
-          .timeout(const Duration(seconds: 5));
-
+      final response = await Dio().get(ApiConfig.healthUrl());
       final isOnline = response.statusCode == 200;
       final newStatus =
           isOnline ? ConnectivityStatus.online : ConnectivityStatus.limited;

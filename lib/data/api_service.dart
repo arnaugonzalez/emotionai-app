@@ -19,19 +19,19 @@ import 'auth_api.dart';
 class ApiService {
   final _storage = const FlutterSecureStorage();
   final _logger = Logger();
-  final AuthApi _authApi = AuthApi();
-  late final Dio _dio = _authApi.dio;
+  final AuthApi _authApi;
+  late final Dio _dio;
+
+  ApiService({Dio? dio, AuthApi? authApi}) : _authApi = authApi ?? AuthApi() {
+    _dio = dio ?? _authApi.dio;
+  }
 
   Future<String?> _getToken() async {
     // Use AuthApi to ensure token is fresh and aligns with interceptor storage
     return await _authApi.getValidAccessToken();
   }
 
-  Future<void> _setToken(String token) async {
-    // Keep alias for backward compatibility and any legacy code paths
-    await _storage.write(key: 'auth_token', value: token);
-    await _storage.write(key: 'access_token', value: token);
-  }
+  // Deprecated: tokens are managed via AuthApi
 
   Future<void> _clearToken() async {
     await _storage.delete(key: 'auth_token');
@@ -227,6 +227,7 @@ class ApiService {
         options: Options(headers: await _getHeaders()),
       );
       _logger.i('Breathing sessions response: ${response.statusCode}');
+
       return _handleListResponse(
         response,
         (json) => BreathingSessionData.fromJson(json),

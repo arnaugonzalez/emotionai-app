@@ -226,7 +226,7 @@ class ApiConfig {
   static String customEmotionsUrl() => '$baseUrl$_customEmotions/';
 
   // Profile URLs
-  static String profileUrl() => '$baseUrl$_profile';
+  static String profileUrl() => '$baseUrl$_profile/';
   static String profileStatusUrl() => '$baseUrl$_profileStatus';
   static String therapyContextUrl() => '$baseUrl$_therapyContext';
   static String agentPersonalityUrl() => '$baseUrl$_agentPersonality';

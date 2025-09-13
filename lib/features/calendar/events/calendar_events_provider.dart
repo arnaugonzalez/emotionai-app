@@ -3,8 +3,7 @@ import 'package:emotion_ai/data/models/breathing_session.dart';
 import 'package:emotion_ai/data/models/emotional_record.dart';
 import 'package:emotion_ai/config/api_config.dart';
 import 'package:emotion_ai/utils/data_validator.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
 
 final logger = Logger();
@@ -91,11 +90,18 @@ class CalendarEventsProvider extends ChangeNotifier {
     try {
       logger.i('Fetching calendar events from backend...');
 
-      final emotionalResponse = await http
-          .get(Uri.parse(ApiConfig.emotionalRecordsUrl()))
+      final dio = Dio(
+        BaseOptions(
+          baseUrl: ApiConfig.baseUrl,
+          connectTimeout: ApiConfig.connectTimeout,
+          receiveTimeout: ApiConfig.receiveTimeout,
+        ),
+      );
+      final emotionalResponse = await dio
+          .get(ApiConfig.emotionalRecordsUrl())
           .timeout(const Duration(seconds: 5));
-      final breathingResponse = await http
-          .get(Uri.parse(ApiConfig.breathingSessionsUrl()))
+      final breathingResponse = await dio
+          .get(ApiConfig.breathingSessionsUrl())
           .timeout(const Duration(seconds: 5));
 
       logger.i(
@@ -105,26 +111,22 @@ class CalendarEventsProvider extends ChangeNotifier {
       if (emotionalResponse.statusCode == 200 &&
           breathingResponse.statusCode == 200) {
         // Validate response bodies
-        final emotionalBody = emotionalResponse.body;
-        final breathingBody = breathingResponse.body;
+        final emotionalBody = emotionalResponse.data;
+        final breathingBody = breathingResponse.data;
 
         logger.i(
           'Response bodies - Emotional length: ${emotionalBody.length}, Breathing length: ${breathingBody.length}',
         );
 
-        if (emotionalBody.isEmpty || breathingBody.isEmpty) {
+        if (emotionalBody == null || breathingBody == null) {
           throw Exception('Empty response from backend');
         }
 
         dynamic emotionalJson;
         dynamic breathingJson;
 
-        try {
-          emotionalJson = jsonDecode(emotionalBody);
-          breathingJson = jsonDecode(breathingBody);
-        } catch (e) {
-          throw Exception('Invalid JSON response from backend: $e');
-        }
+        emotionalJson = emotionalBody;
+        breathingJson = breathingBody;
 
         // Ensure responses are lists
         if (emotionalJson is! List) {

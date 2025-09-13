@@ -1,15 +1,16 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/user_profile.dart';
 import '../models/therapy_context.dart';
 import '../../config/api_config.dart';
+import '../auth_api.dart';
 
 class ProfileService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final Dio _dio;
 
-  ProfileService();
+  ProfileService({Dio? dio}) : _dio = dio ?? AuthApi().dio;
 
   Future<String?> _getToken() async {
     return await _storage.read(key: 'auth_token');
@@ -26,16 +27,16 @@ class ProfileService {
   /// Get user profile
   Future<UserProfile?> getUserProfile() async {
     try {
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/profile/'),
-        headers: await _getHeaders(),
+      final response = await _dio.get(
+        ApiConfig.profileUrl(),
+        options: Options(headers: await _getHeaders()),
       );
 
       print('DEBUG: Profile API response status: ${response.statusCode}');
-      print('DEBUG: Profile API response body: ${response.body}');
+      print('DEBUG: Profile API response body: ${response.data}');
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = response.data as Map<String, dynamic>;
         print('DEBUG: Parsed profile data: $data');
 
         try {
@@ -52,10 +53,14 @@ class ProfileService {
         return null; // Profile not found
       } else {
         print(
-          'DEBUG: Profile API error: ${response.statusCode} - ${response.body}',
+          'DEBUG: Profile API error: ${response.statusCode} - ${response.data}',
         );
         throw Exception('Failed to get profile: ${response.statusCode}');
       }
+    } on DioException catch (e) {
+      throw Exception(
+        'Error getting profile: ${e.response?.data ?? e.message}',
+      );
     } catch (e) {
       print('DEBUG: Exception in getUserProfile: $e');
       throw Exception('Error getting profile: $e');
@@ -67,18 +72,20 @@ class ProfileService {
     Map<String, dynamic> profileData,
   ) async {
     try {
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/profile/'),
-        headers: await _getHeaders(),
-        body: json.encode(profileData),
+      final response = await _dio.post(
+        ApiConfig.profileUrl(),
+        data: profileData,
+        options: Options(headers: await _getHeaders()),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = json.decode(response.body);
+        final data = response.data as Map<String, dynamic>;
         return UserProfile.fromJson(data);
       } else {
         throw Exception('Failed to save profile: ${response.statusCode}');
       }
+    } on DioException catch (e) {
+      throw Exception('Error saving profile: ${e.response?.data ?? e.message}');
     } catch (e) {
       throw Exception('Error saving profile: $e');
     }
@@ -87,17 +94,21 @@ class ProfileService {
   /// Get profile completion status
   Future<ProfileStatus> getProfileStatus() async {
     try {
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/profile/status'),
-        headers: await _getHeaders(),
+      final response = await _dio.get(
+        ApiConfig.profileStatusUrl(),
+        options: Options(headers: await _getHeaders()),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = response.data as Map<String, dynamic>;
         return ProfileStatus.fromJson(data);
       } else {
         throw Exception('Failed to get profile status: ${response.statusCode}');
       }
+    } on DioException catch (e) {
+      throw Exception(
+        'Error getting profile status: ${e.response?.data ?? e.message}',
+      );
     } catch (e) {
       throw Exception('Error getting profile status: $e');
     }
@@ -106,13 +117,13 @@ class ProfileService {
   /// Get therapy context and AI insights
   Future<TherapyContext?> getTherapyContext() async {
     try {
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/profile/therapy-context'),
-        headers: await _getHeaders(),
+      final response = await _dio.get(
+        ApiConfig.therapyContextUrl(),
+        options: Options(headers: await _getHeaders()),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = response.data as Map<String, dynamic>;
         return TherapyContext.fromJson(data);
       } else if (response.statusCode == 404) {
         return null; // No therapy context found
@@ -121,6 +132,10 @@ class ProfileService {
           'Failed to get therapy context: ${response.statusCode}',
         );
       }
+    } on DioException catch (e) {
+      throw Exception(
+        'Error getting therapy context: ${e.response?.data ?? e.message}',
+      );
     } catch (e) {
       throw Exception('Error getting therapy context: $e');
     }
@@ -131,20 +146,24 @@ class ProfileService {
     Map<String, dynamic> contextData,
   ) async {
     try {
-      final response = await http.put(
-        Uri.parse('${ApiConfig.baseUrl}/profile/therapy-context'),
-        headers: await _getHeaders(),
-        body: json.encode(contextData),
+      final response = await _dio.put(
+        ApiConfig.therapyContextUrl(),
+        data: contextData,
+        options: Options(headers: await _getHeaders()),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = response.data as Map<String, dynamic>;
         return TherapyContext.fromJson(data);
       } else {
         throw Exception(
           'Failed to update therapy context: ${response.statusCode}',
         );
       }
+    } on DioException catch (e) {
+      throw Exception(
+        'Error updating therapy context: ${e.response?.data ?? e.message}',
+      );
     } catch (e) {
       throw Exception('Error updating therapy context: $e');
     }
@@ -153,12 +172,16 @@ class ProfileService {
   /// Clear therapy context and AI insights
   Future<bool> clearTherapyContext() async {
     try {
-      final response = await http.delete(
-        Uri.parse('${ApiConfig.baseUrl}/profile/therapy-context'),
-        headers: await _getHeaders(),
+      final response = await _dio.delete(
+        ApiConfig.therapyContextUrl(),
+        options: Options(headers: await _getHeaders()),
       );
 
       return response.statusCode == 200;
+    } on DioException catch (e) {
+      throw Exception(
+        'Error clearing therapy context: ${e.response?.data ?? e.message}',
+      );
     } catch (e) {
       throw Exception('Error clearing therapy context: $e');
     }
@@ -167,13 +190,13 @@ class ProfileService {
   /// Get AI agent personality settings and context
   Future<Map<String, dynamic>?> getAgentPersonality() async {
     try {
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/profile/agent-personality'),
-        headers: await _getHeaders(),
+      final response = await _dio.get(
+        ApiConfig.agentPersonalityUrl(),
+        options: Options(headers: await _getHeaders()),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = response.data as Map<String, dynamic>;
         return data;
       } else if (response.statusCode == 404) {
         return null; // No agent personality data found
@@ -182,6 +205,10 @@ class ProfileService {
           'Failed to get agent personality: ${response.statusCode}',
         );
       }
+    } on DioException catch (e) {
+      throw Exception(
+        'Error getting agent personality: ${e.response?.data ?? e.message}',
+      );
     } catch (e) {
       throw Exception('Error getting agent personality: $e');
     }
@@ -192,20 +219,24 @@ class ProfileService {
     Map<String, dynamic> personalityData,
   ) async {
     try {
-      final response = await http.put(
-        Uri.parse('${ApiConfig.baseUrl}/profile/agent-personality'),
-        headers: await _getHeaders(),
-        body: json.encode(personalityData),
+      final response = await _dio.put(
+        ApiConfig.agentPersonalityUrl(),
+        data: personalityData,
+        options: Options(headers: await _getHeaders()),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = response.data as Map<String, dynamic>;
         return data;
       } else {
         throw Exception(
           'Failed to update agent personality: ${response.statusCode}',
         );
       }
+    } on DioException catch (e) {
+      throw Exception(
+        'Error updating agent personality: ${e.response?.data ?? e.message}',
+      );
     } catch (e) {
       throw Exception('Error updating agent personality: $e');
     }

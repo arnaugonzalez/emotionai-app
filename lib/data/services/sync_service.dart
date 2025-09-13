@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:logger/logger.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:dio/dio.dart';
 
 import '../api_service.dart';
 import '../models/emotional_record.dart';
@@ -103,12 +102,10 @@ class SyncService {
     try {
       _logger.i('🏥 Testing backend availability: ${ApiConfig.healthUrl()}');
 
-      final response = await http
-          .get(
-            Uri.parse(ApiConfig.healthUrl()),
-            headers: {'Content-Type': 'application/json'},
-          )
-          .timeout(const Duration(seconds: 10));
+      final response = await Dio().get(
+        ApiConfig.healthUrl(),
+        options: Options(headers: {'Content-Type': 'application/json'}),
+      );
 
       final isAvailable = response.statusCode == 200;
       _logger.i(
@@ -164,16 +161,15 @@ class SyncService {
     try {
       _logger.i('🔄 Syncing record to backend: ${record.id}');
 
-      final response = await http
-          .post(
-            Uri.parse(ApiConfig.emotionalRecordsUrl()),
-            headers: await _apiService.getHeaders(),
-            body: jsonEncode(record.toJson()),
-          )
-          .timeout(const Duration(seconds: 30));
+      final dio = Dio();
+      final response = await dio.post(
+        ApiConfig.emotionalRecordsUrl(),
+        data: record.toJson(),
+        options: Options(headers: await _apiService.getHeaders()),
+      );
 
       if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
+        final responseData = response.data as Map<String, dynamic>;
         if (record.id != null) {
           await _localDb.markEmotionalRecordSynced(record.id!);
         }
@@ -182,9 +178,12 @@ class SyncService {
         return EmotionalRecord.fromJson(responseData);
       } else {
         throw Exception(
-          'Backend returned ${response.statusCode}: ${response.body}',
+          'Backend returned ${response.statusCode}: ${response.data}',
         );
       }
+    } on DioException catch (e) {
+      _logger.e('❌ Failed to sync record: ${e.response?.data ?? e.message}');
+      rethrow;
     } catch (e) {
       _logger.e('❌ Failed to sync record: $e');
       rethrow;
