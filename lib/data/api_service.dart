@@ -1,6 +1,5 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-// TODO: Migrate to Dio-based client; keep http for legacy endpoints during transition
+import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'models/user.dart';
 import 'models/auth_response.dart';
@@ -21,6 +20,7 @@ class ApiService {
   final _storage = const FlutterSecureStorage();
   final _logger = Logger();
   final AuthApi _authApi = AuthApi();
+  late final Dio _dio = _authApi.dio;
 
   Future<String?> _getToken() async {
     // Use AuthApi to ensure token is fresh and aligns with interceptor storage
@@ -52,63 +52,50 @@ class ApiService {
 
   /// Handle HTTP response and throw appropriate exceptions
   T _handleResponse<T>(
-    http.Response response,
+    Response response,
     T Function(Map<String, dynamic>) parser,
   ) {
-    if (response.statusCode >= 200 && response.statusCode < 300) {
+    final status = response.statusCode ?? 0;
+    if (status >= 200 && status < 300) {
       try {
-        final responseData = jsonDecode(response.body);
-        return parser(responseData);
+        final data = response.data as Map<String, dynamic>;
+        return parser(data);
       } catch (e) {
         _logger.e('Failed to parse response: $e');
         throw UnknownApiException('Invalid response format');
       }
-    } else {
-      throw ApiExceptionFactory.fromResponse(
-        response.statusCode,
-        response.body,
-        defaultMessage: 'Request failed with status ${response.statusCode}',
-      );
     }
+    throw ApiExceptionFactory.fromResponse(status, jsonEncode(response.data));
   }
 
   /// Handle HTTP response for list endpoints
   List<T> _handleListResponse<T>(
-    http.Response response,
+    Response response,
     T Function(Map<String, dynamic>) parser,
   ) {
-    if (response.statusCode >= 200 && response.statusCode < 300) {
+    final status = response.statusCode ?? 0;
+    if (status >= 200 && status < 300) {
       try {
-        final dynamic responseData = jsonDecode(response.body);
-
+        final dynamic responseData = response.data;
         if (responseData is! List) {
           throw UnknownApiException(
             'Expected list response, got: ${responseData.runtimeType}',
           );
         }
-
         final List<dynamic> data = responseData;
         _logger.i('Processing ${data.length} items');
-
-        // Validate each item before parsing
         final validatedData = DataValidator.validateApiResponseList(
           data,
           T.toString(),
         );
-
         return validatedData.map((json) => parser(json)).toList();
       } catch (e) {
         if (e is ApiException) rethrow;
         _logger.e('Failed to parse list response: $e');
         throw UnknownApiException('Invalid response format');
       }
-    } else {
-      throw ApiExceptionFactory.fromResponse(
-        response.statusCode,
-        response.body,
-        defaultMessage: 'Request failed with status ${response.statusCode}',
-      );
     }
+    throw ApiExceptionFactory.fromResponse(status, jsonEncode(response.data));
   }
 
   Future<User> createUser(
@@ -154,22 +141,21 @@ class ApiService {
     );
 
     try {
-      final response = await http
-          .post(
-            Uri.parse(ApiConfig.emotionalRecordsUrl()),
-            headers: await _getHeaders(),
-            body: jsonEncode(record.toJson()),
-          )
-          .timeout(const Duration(seconds: 30));
-
+      final response = await _dio.post(
+        ApiConfig.emotionalRecordsUrl(),
+        data: record.toJson(),
+        options: Options(headers: await _getHeaders()),
+      );
       _logger.i('📥 Emotional record response: ${response.statusCode}');
-
       return _handleResponse(response, (data) {
         _logger.i('✅ Emotional record created successfully: ${data['id']}');
         return EmotionalRecord.fromJson(data);
       });
-    } on ApiException {
-      rethrow;
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
     } catch (e) {
       _logger.e('❌ Network error creating emotional record: $e');
       throw ApiExceptionFactory.fromException(e);
@@ -182,19 +168,22 @@ class ApiService {
         'Fetching emotional records from ${ApiConfig.emotionalRecordsUrl()}',
       );
 
-      final response = await http.get(
-        Uri.parse(ApiConfig.emotionalRecordsUrl()),
-        headers: await _getHeaders(),
+      final response = await _dio.get(
+        ApiConfig.emotionalRecordsUrl(),
+        options: Options(headers: await _getHeaders()),
       );
-
       _logger.i('Emotional records response: ${response.statusCode}');
-
       return _handleListResponse(
         response,
         (json) => EmotionalRecord.fromJson(json),
       );
     } on ApiException {
       rethrow;
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
     } catch (e) {
       _logger.e('Error fetching emotional records: $e');
       throw ApiExceptionFactory.fromException(e);
@@ -206,18 +195,22 @@ class ApiService {
     BreathingSessionData session,
   ) async {
     try {
-      final response = await http.post(
-        Uri.parse(ApiConfig.breathingSessionsUrl()),
-        headers: await _getHeaders(),
-        body: jsonEncode(session.toJson()),
+      final response = await _dio.post(
+        ApiConfig.breathingSessionsUrl(),
+        data: session.toJson(),
+        options: Options(headers: await _getHeaders()),
       );
-
       return _handleResponse(
         response,
         (data) => BreathingSessionData.fromJson(data),
       );
     } on ApiException {
       rethrow;
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
     } catch (e) {
       throw ApiExceptionFactory.fromException(e);
     }
@@ -229,19 +222,22 @@ class ApiService {
         'Fetching breathing sessions from ${ApiConfig.breathingSessionsUrl()}',
       );
 
-      final response = await http.get(
-        Uri.parse(ApiConfig.breathingSessionsUrl()),
-        headers: await _getHeaders(),
+      final response = await _dio.get(
+        ApiConfig.breathingSessionsUrl(),
+        options: Options(headers: await _getHeaders()),
       );
-
       _logger.i('Breathing sessions response: ${response.statusCode}');
-
       return _handleListResponse(
         response,
         (json) => BreathingSessionData.fromJson(json),
       );
     } on ApiException {
       rethrow;
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
     } catch (e) {
       _logger.e('Error fetching breathing sessions: $e');
       throw ApiExceptionFactory.fromException(e);
@@ -253,18 +249,22 @@ class ApiService {
     BreathingPattern pattern,
   ) async {
     try {
-      final response = await http.post(
-        Uri.parse(ApiConfig.breathingPatternsUrl()),
-        headers: await _getHeaders(),
-        body: jsonEncode(pattern.toJson()),
+      final response = await _dio.post(
+        ApiConfig.breathingPatternsUrl(),
+        data: pattern.toJson(),
+        options: Options(headers: await _getHeaders()),
       );
-
       return _handleResponse(
         response,
         (data) => BreathingPattern.fromJson(data),
       );
     } on ApiException {
       rethrow;
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
     } catch (e) {
       throw ApiExceptionFactory.fromException(e);
     }
@@ -272,17 +272,21 @@ class ApiService {
 
   Future<List<BreathingPattern>> getBreathingPatterns() async {
     try {
-      final response = await http.get(
-        Uri.parse(ApiConfig.breathingPatternsUrl()),
-        headers: await _getHeaders(),
+      final response = await _dio.get(
+        ApiConfig.breathingPatternsUrl(),
+        options: Options(headers: await _getHeaders()),
       );
-
       return _handleListResponse(
         response,
         (json) => BreathingPattern.fromJson(json),
       );
     } on ApiException {
       rethrow;
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
     } catch (e) {
       throw ApiExceptionFactory.fromException(e);
     }
@@ -291,15 +295,19 @@ class ApiService {
   // Custom Emotions
   Future<CustomEmotion> createCustomEmotion(CustomEmotion emotion) async {
     try {
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/custom_emotions/'),
-        headers: await _getHeaders(),
-        body: jsonEncode(emotion.toJson()),
+      final response = await _dio.post(
+        ApiConfig.customEmotionsUrl(),
+        data: emotion.toJson(),
+        options: Options(headers: await _getHeaders()),
       );
-
       return _handleResponse(response, (data) => CustomEmotion.fromJson(data));
     } on ApiException {
       rethrow;
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
     } catch (e) {
       throw ApiExceptionFactory.fromException(e);
     }
@@ -307,17 +315,21 @@ class ApiService {
 
   Future<List<CustomEmotion>> getCustomEmotions() async {
     try {
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/custom_emotions/'),
-        headers: await _getHeaders(),
+      final response = await _dio.get(
+        ApiConfig.customEmotionsUrl(),
+        options: Options(headers: await _getHeaders()),
       );
-
       return _handleListResponse(
         response,
         (json) => CustomEmotion.fromJson(json),
       );
     } on ApiException {
       rethrow;
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
     } catch (e) {
       throw ApiExceptionFactory.fromException(e);
     }
@@ -326,11 +338,10 @@ class ApiService {
   // User Limitations (from backend)
   Future<UserLimitations> getUserLimitations() async {
     try {
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/user/limitations'),
-        headers: await _getHeaders(),
+      final response = await _dio.get(
+        ApiConfig.userLimitationsUrl(),
+        options: Options(headers: await _getHeaders()),
       );
-
       return _handleResponse(response, (data) {
         // Map monthly fields from API to UserLimitations daily-like fields expected by UI
         final monthlyLimit = (data['monthly_token_limit'] ?? 250000) as int;
@@ -353,6 +364,11 @@ class ApiService {
       });
     } on ApiException {
       rethrow;
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
     } catch (e) {
       throw ApiExceptionFactory.fromException(e);
     }
@@ -364,39 +380,36 @@ class ApiService {
     String agentType = 'therapy',
     Map<String, dynamic>? context,
   }) async {
-    final response = await http.post(
-      Uri.parse(ApiConfig.chatUrl()),
-      headers: await _getHeaders(),
-      body: jsonEncode({
+    final response = await _dio.post(
+      ApiConfig.chatUrl(),
+      data: {
         'agent_type': agentType,
         'message': message,
         if (context != null) 'context': context,
-      }),
+      },
+      options: Options(headers: await _getHeaders()),
     );
-
     if (response.statusCode == 200) {
-      return ChatResponse.fromJson(jsonDecode(response.body));
+      return ChatResponse.fromJson(response.data as Map<String, dynamic>);
     } else if (response.statusCode == 429) {
-      // Rate limited
-      final error = jsonDecode(response.body);
+      final data = response.data as Map<String, dynamic>;
       throw Exception(
-        error['message'] ?? error['detail'] ?? 'Rate limit exceeded',
+        data['message'] ?? data['detail'] ?? 'Rate limit exceeded',
       );
     } else {
-      final error = jsonDecode(response.body);
-      throw Exception(error['message'] ?? 'Failed to send chat message');
+      final data = response.data as Map<String, dynamic>;
+      throw Exception(data['message'] ?? 'Failed to send chat message');
     }
   }
 
   // Get available agents
   Future<List<Map<String, dynamic>>> getAgents() async {
-    final response = await http.get(
-      Uri.parse(ApiConfig.agentsListUrl()),
-      headers: await _getHeaders(),
+    final response = await _dio.get(
+      ApiConfig.agentsListUrl(),
+      options: Options(headers: await _getHeaders()),
     );
-
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
+      final data = response.data as Map<String, dynamic>;
       return List<Map<String, dynamic>>.from(data['agents']);
     } else {
       throw Exception('Failed to get agents');
@@ -405,13 +418,12 @@ class ApiService {
 
   // Get agent status
   Future<Map<String, dynamic>> getAgentStatus(String agentType) async {
-    final response = await http.get(
-      Uri.parse(ApiConfig.agentStatusUrl(agentType)),
-      headers: await _getHeaders(),
+    final response = await _dio.get(
+      ApiConfig.agentStatusUrl(agentType),
+      options: Options(headers: await _getHeaders()),
     );
-
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      return response.data as Map<String, dynamic>;
     } else {
       throw Exception('Failed to get agent status');
     }
@@ -419,11 +431,10 @@ class ApiService {
 
   // Clear agent memory
   Future<void> clearAgentMemory(String agentType) async {
-    final response = await http.delete(
-      Uri.parse('${ApiConfig.baseUrl}/api/v1/agents/$agentType/memory'),
-      headers: await _getHeaders(),
+    final response = await _dio.delete(
+      ApiConfig.agentMemoryUrl(agentType),
+      options: Options(headers: await _getHeaders()),
     );
-
     if (response.statusCode != 200) {
       throw Exception('Failed to clear agent memory');
     }
@@ -431,13 +442,12 @@ class ApiService {
 
   // Get conversations
   Future<List<Map<String, dynamic>>> getConversations() async {
-    final response = await http.get(
-      Uri.parse('${ApiConfig.baseUrl}/api/v1/conversations'),
-      headers: await _getHeaders(),
+    final response = await _dio.get(
+      '${ApiConfig.baseUrl}/v1/api/conversations',
+      options: Options(headers: await _getHeaders()),
     );
-
     if (response.statusCode == 200) {
-      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+      return List<Map<String, dynamic>>.from(response.data as List);
     } else {
       throw Exception('Failed to get conversations');
     }
@@ -446,7 +456,7 @@ class ApiService {
   // Health check
   Future<bool> checkHealth() async {
     try {
-      final response = await http.get(Uri.parse(ApiConfig.healthUrl()));
+      final response = await _dio.get(ApiConfig.healthUrl());
       return response.statusCode == 200;
     } catch (e) {
       return false;
@@ -455,17 +465,17 @@ class ApiService {
 
   // Dev seed endpoints
   Future<Map<String, dynamic>> devSeedLoadPresetData() async {
-    final response = await http.post(
-      Uri.parse(ApiConfig.devSeedLoadPresetDataUrl()),
-      headers: await _getHeaders(),
+    final response = await _dio.post(
+      ApiConfig.devSeedLoadPresetDataUrl(),
+      options: Options(headers: await _getHeaders()),
     );
     return _handleResponse(response, (data) => data);
   }
 
   Future<Map<String, dynamic>> devSeedReset() async {
-    final response = await http.post(
-      Uri.parse(ApiConfig.devSeedResetUrl()),
-      headers: await _getHeaders(),
+    final response = await _dio.post(
+      ApiConfig.devSeedResetUrl(),
+      options: Options(headers: await _getHeaders()),
     );
     return _handleResponse(response, (data) => data);
   }

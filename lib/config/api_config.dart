@@ -176,11 +176,25 @@ class ApiConfig {
   static const String _agentsList = '$_v1/agents';
   static String _agentStatus(String agentType) =>
       '$_v1/agents/$agentType/status';
+  static String _agentMemory(String agentType) =>
+      '$_v1/agents/$agentType/memory';
 
   // Legacy endpoints (to be migrated)
   static const String _emotionalRecords = '$_v1/emotional_records';
   static const String _breathingSessions = '$_v1/breathing_sessions';
   static const String _breathingPatterns = '$_v1/breathing_patterns';
+
+  // Data endpoints
+  static const String _customEmotions = '$_v1/custom_emotions';
+
+  // Profile endpoints
+  static const String _profile = '$_v1/profile';
+  static const String _profileStatus = '$_v1/profile/status';
+  static const String _therapyContext = '$_v1/profile/therapy-context';
+  static const String _agentPersonality = '$_v1/profile/agent-personality';
+
+  // Usage endpoints
+  static const String _userLimitations = '$_v1/user/limitations';
 
   // Test endpoints
   static const String _testConnection = '/test/phone';
@@ -200,11 +214,25 @@ class ApiConfig {
   static String agentsListUrl() => '$baseUrl$_agentsList';
   static String agentStatusUrl(String agentType) =>
       '$baseUrl${_agentStatus(agentType)}';
+  static String agentMemoryUrl(String agentType) =>
+      '$baseUrl${_agentMemory(agentType)}';
 
   // Legacy URLs (for backward compatibility)
   static String emotionalRecordsUrl() => '$baseUrl$_emotionalRecords/';
   static String breathingSessionsUrl() => '$baseUrl$_breathingSessions/';
   static String breathingPatternsUrl() => '$baseUrl$_breathingPatterns/';
+
+  // Data URLs
+  static String customEmotionsUrl() => '$baseUrl$_customEmotions/';
+
+  // Profile URLs
+  static String profileUrl() => '$baseUrl$_profile';
+  static String profileStatusUrl() => '$baseUrl$_profileStatus';
+  static String therapyContextUrl() => '$baseUrl$_therapyContext';
+  static String agentPersonalityUrl() => '$baseUrl$_agentPersonality';
+
+  // Usage URLs
+  static String userLimitationsUrl() => '$baseUrl$_userLimitations';
 
   static String testConnectionUrl() => '$baseUrl$_testConnection';
   static String devSeedLoadPresetDataUrl() => '$baseUrl$_devSeedLoadPresetData';
