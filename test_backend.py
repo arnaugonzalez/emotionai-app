@@ -61,7 +61,7 @@ def test_authentication():
             "password": TEST_USER["password"],
             "email": f"{TEST_USER['username']}@test.com"
         }
-        response = requests.post(f"{BASE_URL}/auth/register", json=register_data)
+        response = requests.post(f"{BASE_URL}/v1/api/auth/register", json=register_data)
         register_passed = response.status_code in [200, 201, 409]  # 409 if user exists
         print_test("User Registration", register_passed, f"Status: {response.status_code}")
     except Exception as e:
@@ -74,7 +74,7 @@ def test_authentication():
             "username": TEST_USER["username"],
             "password": TEST_USER["password"]
         }
-        response = requests.post(f"{BASE_URL}/auth/login", json=login_data)
+        response = requests.post(f"{BASE_URL}/v1/api/auth/login", json=login_data)
         login_passed = response.status_code == 200
         print_test("User Login", login_passed, f"Status: {response.status_code}")
         
@@ -91,7 +91,7 @@ def test_protected_endpoints(token: str):
     
     # Test emotional records
     try:
-        response = requests.get(f"{BASE_URL}/emotional_records/", headers=headers)
+        response = requests.get(f"{BASE_URL}/v1/api/emotional_records/", headers=headers)
         passed = response.status_code == 200
         print_test("Get Emotional Records", passed, f"Status: {response.status_code}")
     except Exception as e:
@@ -99,7 +99,7 @@ def test_protected_endpoints(token: str):
 
     # Test breathing sessions
     try:
-        response = requests.get(f"{BASE_URL}/breathing_sessions/", headers=headers)
+        response = requests.get(f"{BASE_URL}/v1/api/breathing_sessions/", headers=headers)
         passed = response.status_code == 200
         print_test("Get Breathing Sessions", passed, f"Status: {response.status_code}")
     except Exception as e:
@@ -107,7 +107,7 @@ def test_protected_endpoints(token: str):
 
     # Test breathing patterns
     try:
-        response = requests.get(f"{BASE_URL}/breathing_patterns/", headers=headers)
+        response = requests.get(f"{BASE_URL}/v1/api/breathing_patterns/", headers=headers)
         passed = response.status_code == 200
         print_test("Get Breathing Patterns", passed, f"Status: {response.status_code}")
     except Exception as e:
@@ -115,7 +115,7 @@ def test_protected_endpoints(token: str):
 
     # Test custom emotions
     try:
-        response = requests.get(f"{BASE_URL}/custom_emotions/", headers=headers)
+        response = requests.get(f"{BASE_URL}/v1/api/custom_emotions/", headers=headers)
         passed = response.status_code == 200
         print_test("Get Custom Emotions", passed, f"Status: {response.status_code}")
     except Exception as e:
@@ -127,7 +127,7 @@ def test_chat_endpoints(token: str):
     
     # Test agents list
     try:
-        response = requests.get(f"{BASE_URL}/api/v1/agents", headers=headers)
+        response = requests.get(f"{BASE_URL}/v1/api/agents", headers=headers)
         passed = response.status_code == 200
         print_test("List AI Agents", passed, f"Status: {response.status_code}")
     except Exception as e:
@@ -140,7 +140,7 @@ def test_chat_endpoints(token: str):
             "message": "Hello, this is a test message",
             "context": {}
         }
-        response = requests.post(f"{BASE_URL}/api/v1/chat", headers=headers, json=chat_data)
+        response = requests.post(f"{BASE_URL}/v1/api/chat", headers=headers, json=chat_data)
         passed = response.status_code == 200
         print_test("Send Chat Message", passed, f"Status: {response.status_code}")
     except Exception as e:

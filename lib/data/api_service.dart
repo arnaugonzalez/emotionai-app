@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+// TODO: Migrate to Dio-based client; keep http for legacy endpoints during transition
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'models/user.dart';
 import 'models/auth_response.dart';
@@ -14,17 +15,22 @@ import '../config/api_config.dart';
 import '../utils/data_validator.dart';
 import 'package:logger/logger.dart';
 import 'exceptions/api_exceptions.dart';
+import 'auth_api.dart';
 
 class ApiService {
   final _storage = const FlutterSecureStorage();
   final _logger = Logger();
+  final AuthApi _authApi = AuthApi();
 
   Future<String?> _getToken() async {
-    return await _storage.read(key: 'auth_token');
+    // Use AuthApi to ensure token is fresh and aligns with interceptor storage
+    return await _authApi.getValidAccessToken();
   }
 
   Future<void> _setToken(String token) async {
+    // Keep alias for backward compatibility and any legacy code paths
     await _storage.write(key: 'auth_token', value: token);
+    await _storage.write(key: 'access_token', value: token);
   }
 
   Future<void> _clearToken() async {
@@ -112,56 +118,29 @@ class ApiService {
     String lastName, {
     DateTime? dateOfBirth,
   }) async {
-    final Map<String, dynamic> requestBody = {
-      'email': email,
-      'password': password,
-      'first_name': firstName,
-      'last_name': lastName,
-    };
-
-    if (dateOfBirth != null) {
-      requestBody['date_of_birth'] = dateOfBirth.toIso8601String();
-    }
-
-    final response = await http.post(
-      Uri.parse(ApiConfig.registerUrl()),
-      headers: await _getHeaders(),
-      body: jsonEncode(requestBody),
+    // Use AuthApi to register and then fetch profile
+    await _authApi.register(
+      email: email,
+      password: password,
+      firstName: firstName,
+      lastName: lastName,
     );
-
-    if (response.statusCode == 200) {
-      final authResponse = AuthResponse.fromJson(jsonDecode(response.body));
-      await _setToken(authResponse.accessToken);
-      return authResponse.user;
-    } else {
-      final error = jsonDecode(response.body);
-      throw Exception(error['message'] ?? 'Failed to create user');
-    }
+    final me = await _authApi.me();
+    return User.fromJson(me);
   }
 
   Future<AuthResponse?> login(String email, String password) async {
-    final response = await http.post(
-      Uri.parse(ApiConfig.loginUrl()),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password}),
+    // Use AuthApi for login (stores access/refresh + expiry)
+    final tokens = await _authApi.login(email: email, password: password);
+    // Build AuthResponse using /auth/me for user data
+    final me = await _authApi.me();
+    return AuthResponse(
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      tokenType: 'bearer',
+      expiresIn: tokens.expiresIn,
+      user: User.fromJson(me),
     );
-
-    if (response.statusCode == 200) {
-      final authResponse = AuthResponse.fromJson(jsonDecode(response.body));
-      await _setToken(authResponse.accessToken);
-      // Store token expiry time for future reference
-      final expiryTime = DateTime.now().add(
-        Duration(seconds: authResponse.expiresIn),
-      );
-      await _storage.write(
-        key: 'token_expiry',
-        value: expiryTime.toIso8601String(),
-      );
-      return authResponse;
-    } else {
-      final error = jsonDecode(response.body);
-      throw Exception(error['message'] ?? 'Failed to login');
-    }
   }
 
   Future<void> logout() async {

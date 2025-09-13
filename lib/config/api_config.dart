@@ -11,6 +11,11 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 class ApiConfig {
+  // Optional explicit BASE_URL override (e.g., https://emotionai.duckdns.org)
+  static const String _explicitBaseUrl = String.fromEnvironment(
+    'BASE_URL',
+    defaultValue: '',
+  );
   // Launch configuration parameters
   static const String _environment = String.fromEnvironment(
     'ENVIRONMENT',
@@ -40,6 +45,9 @@ class ApiConfig {
 
   // API Configuration with dynamic URL building
   static String get baseUrl {
+    if (_explicitBaseUrl.isNotEmpty) {
+      return _explicitBaseUrl;
+    }
     return _buildDynamicUrl();
   }
 
@@ -157,19 +165,22 @@ class ApiConfig {
   static const String _healthDetailed = '/health/detailed';
 
   // Authentication endpoints
-  static const String _authLogin = '/auth/login';
-  static const String _authRegister = '/auth/register';
+  static const String _v1 = '/v1/api';
+  static const String _authLogin = '$_v1/auth/login';
+  static const String _authRegister = '$_v1/auth/register';
+  static const String _authRefresh = '$_v1/auth/refresh';
+  static const String _authMe = '$_v1/auth/me';
 
   // Chat endpoints
-  static const String _chatV1 = '/api/v1/chat';
-  static const String _agentsList = '/api/v1/agents';
+  static const String _chatV1 = '$_v1/chat';
+  static const String _agentsList = '$_v1/agents';
   static String _agentStatus(String agentType) =>
-      '/api/v1/agents/$agentType/status';
+      '$_v1/agents/$agentType/status';
 
   // Legacy endpoints (to be migrated)
-  static const String _emotionalRecords = '/emotional_records';
-  static const String _breathingSessions = '/breathing_sessions';
-  static const String _breathingPatterns = '/breathing_patterns';
+  static const String _emotionalRecords = '$_v1/emotional_records';
+  static const String _breathingSessions = '$_v1/breathing_sessions';
+  static const String _breathingPatterns = '$_v1/breathing_patterns';
 
   // Test endpoints
   static const String _testConnection = '/test/phone';
@@ -183,6 +194,8 @@ class ApiConfig {
   static String healthDetailedUrl() => '$baseUrl$_healthDetailed';
   static String loginUrl() => '$baseUrl$_authLogin';
   static String registerUrl() => '$baseUrl$_authRegister';
+  static String refreshUrl() => '$baseUrl$_authRefresh';
+  static String meUrl() => '$baseUrl$_authMe';
   static String chatUrl() => '$baseUrl$_chatV1';
   static String agentsListUrl() => '$baseUrl$_agentsList';
   static String agentStatusUrl(String agentType) =>

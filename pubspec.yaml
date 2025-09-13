@@ -34,12 +34,14 @@ dependencies:
   go_router: ^15.2.3
   table_calendar: ^3.2.0
   http: ^1.4.0 # For HTTP communication with FastAPI
+  dio: ^5.5.0+1 # For HTTP with interceptors and retries
   sqflite: ^2.2.0
   path: ^1.8.3
   logger: ^2.5.0
   provider: ^6.0.0
   shared_preferences: ^2.5.3
   flutter_secure_storage: ^9.2.4
+  jwt_decoder: ^2.0.1
   flutter_dotenv: ^5.2.1
   flutter_colorpicker: ^1.0.3 # Color picker for custom emotions
   url_launcher: ^6.2.5 # For launching URLs like the personality test
