@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -34,16 +35,23 @@ class EncryptionService {
   Future<String> _getDeviceSpecificId() async {
     try {
       // Try to get existing device ID
-      String? deviceId = await _secureStorage.read(key: 'device_id');
+      String? deviceId;
+      try {
+        deviceId = await _secureStorage.read(key: 'device_id');
+      } catch (e) {
+        // Handle corrupted/old keystore values (e.g., BAD_DECRYPT)
+        logger.w('SecureStorage read failed for device_id, resetting: $e');
+        try {
+          await _secureStorage.delete(key: 'device_id');
+        } catch (_) {}
+        deviceId = null;
+      }
 
       if (deviceId == null) {
         // Generate new device ID if none exists
-        deviceId = base64Url.encode(
-          List<int>.generate(
-            32,
-            (_) => DateTime.now().microsecondsSinceEpoch % 256,
-          ),
-        );
+        final rand = Random.secure();
+        final bytes = List<int>.generate(32, (_) => rand.nextInt(256));
+        deviceId = base64UrlEncode(bytes);
         await _secureStorage.write(key: 'device_id', value: deviceId);
       }
 
@@ -92,8 +100,12 @@ class EncryptionService {
       if (encryptedValue == null) return null;
       return decryptKey(encryptedValue);
     } catch (e) {
-      logger.e('Error retrieving encrypted key: $e');
-      rethrow;
+      // If decrypt/read fails due to corrupted keystore, drop the stored value
+      logger.w('Error retrieving encrypted key, deleting stored value: $e');
+      try {
+        await _secureStorage.delete(key: _keyPrefix + key);
+      } catch (_) {}
+      return null;
     }
   }
 

@@ -40,7 +40,9 @@ class ApiConfig {
   // Static base URLs for deployed environments
   static const Map<String, String> _deployedUrls = {
     'staging': 'https://staging-api.emotionai.app',
-    'production': 'https://api.emotionai.app',
+    // For production, prefer passing BASE_URL via --dart-define at build/run time
+    // to avoid hardcoding the domain in the repository.
+    'production': 'https://api.example.com',
   };
 
   // API Configuration with dynamic URL building
