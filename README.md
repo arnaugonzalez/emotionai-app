@@ -1,162 +1,45 @@
-# E-motion AI
+# EmotionAI App (Flutter)
 
-<div align="center">
+Mobile client for EmotionAI. Uses Dio with token-refresh interceptors, Riverpod state management, secure storage, and WebSocket realtime updates.
 
-![E-motion AI](assets/logo.png)
+## What’s inside (concise)
+- **Dio + Auth**: Central token handling, access/refresh with automatic refresh on 401.
+- **Profile & Records**: CRUD for profile and emotional records.
+- **Breathing**: Sessions logging and patterns.
+- **Therapy Chat**: Chat with backend agents.
+- **Realtime Calendar**: WS connection with JWT.
 
-*Your personal emotional wellness companion*
+Key docs per package (fill UI screenshots in these):
+- `lib/config/` – API configuration, environments, base URLs. See `api_config.dart`.
+- `lib/data/` – `ApiService`, `AuthApi`, DTOs/models; Dio interceptors and error handling.
+- `lib/features/` – Screens and flows: auth, profile, records, breathing, chat.
+- `lib/shared/services/` – Encryption and secure env services.
 
-</div>
-
-## 🚀 Quick Start
-
-### For Users
-Download the latest APK from the [Releases](../../releases) page.
-
-### For Developers
-
-1. **Clone & Install**
-   ```bash
-   git clone https://github.com/arnaugonzalez/emotion-ai-app.git
-   cd emotion-ai-app
-   flutter pub get
-   ```
-
-2. **Environment Setup**
-   - Copy `.env.template` to `.env` in the `assets` directory
-   - Add required configuration:
-   ```env
-   # OpenAI API Configuration
-   OPENAI_API_KEY=your_api_key_here
-
-   # Admin Configuration (Required)
-   ADMIN_PIN=your_secure_pin_here
-   ```
-
-3. **Backend Setup** (if using API backend)
-   ```bash
-   # Start the backend API
-   cd ../emotionai-api
-   docker-compose up -d
-   ```
-
-4. **Network Configuration** (for physical device testing)
-   ```bash
-   # Quick setup - auto-detect IP
-   scripts/setup_ip.bat
-   
-   # Or manually run with your IP
-   flutter run --dart-define=DOCKER_HOST=192.168.2.53
-   ```
-
-5. **Run the App**
-   ```bash
-   # Default (automatic device detection)
-   flutter run
-   
-   # Physical device with specific IP
-   scripts/run_physical.bat
-   
-   # Android emulator
-   scripts/run_emulator.bat
-   ```
-
-📖 **For detailed network setup:** See [NETWORK_SETUP.md](NETWORK_SETUP.md)
-
-## 🔒 Security Notes
-
-- The `.env` file is not included in the repository
-- Environment variables are encrypted at runtime
-- Each device has its own encryption key
-- Release builds use GitHub Actions secrets
-- APK is built with code obfuscation enabled
-
-## 🏗️ Build Process
-
-### Local Development Build
+## Run locally
 ```bash
-flutter build apk --debug
+flutter pub get
+flutter run --dart-define=BASE_URL=${BASE_URL} \
+  --dart-define=ENVIRONMENT=production \
+  --dart-define=BACKEND_TYPE=deployed \
+  --dart-define=DEVICE_TYPE=physical \
+  --dart-define=SHOW_CONFIG_LOGS=true
 ```
 
-### Release Build
-1. Tag a new version:
-   ```bash
-   git tag -a v1.0.0 -m "Release version 1.0.0"
-   git push origin v1.0.0
-   ```
-2. GitHub Actions will automatically:
-   - Create a secure build
-   - Obfuscate the code
-   - Create a release with the APK
-   - Clean up sensitive data
+## Configuration
+- Centralized at `lib/config/api_config.dart`.
+- For Docker/local dev, adjust `BACKEND_TYPE`, `DOCKER_HOST`, `DEVICE_TYPE`.
+- For deployed backend, set `BASE_URL` or rely on `production` mapping.
 
-## 🛡️ Security Requirements
+## Security
+- Tokens stored with `flutter_secure_storage`.
+- `EncryptionService` guards device-specific keys; handles corruption recovery.
 
-- **Admin PIN**: Must be configured in `.env` file
-- **Environment File**: Never commit `.env` to version control
-- **Secure Storage**: Sensitive data is stored using Flutter Secure Storage
+## Tests
+```bash
+flutter test -r expanded
+```
+Includes unit tests for token refresh and ApiService endpoints plus basic integration flows.
 
-## 🌟 Key Features
+## Backend
+Backend repo: `emotionai-api`. See its root README and routers docs for endpoints and curl.
 
-- 🎨 **Emotion Tracking**
-  - Custom emotion colors
-  - Detailed emotion logging
-  - Historical tracking
-
-- 🧘 **Wellness Tools**
-  - Guided breathing exercises
-  - Meditation timers
-  - Relaxation techniques
-
-- 📊 **Analytics & Insights**
-  - Emotional patterns
-  - Progress tracking
-  - Custom reports
-
-- 🤖 **AI Integration**
-  - Personalized suggestions
-  - Pattern recognition
-  - Adaptive responses
-
-## 💻 Technical Stack
-
-- **Frontend**: Flutter & Dart
-- **State Management**: Riverpod
-- **Navigation**: Go Router
-- **Storage**: SQLite & Secure Storage
-- **AI**: OpenAI API Integration
-
-## 📱 Supported Platforms
-
-- iOS 11.0+
-- Android 5.0+
-- Web (Beta)
-
-## 🔄 Sync & Backup
-
-- Automatic data synchronization
-- Offline support
-- Secure cloud backup
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- OpenAI for API support
-- Flutter team for the framework
-- All contributors and testers
-
----
-<div align="center">
-Made with ❤️ for emotional wellness
-</div>
