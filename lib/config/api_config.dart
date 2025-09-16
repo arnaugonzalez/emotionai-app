@@ -235,8 +235,15 @@ class ApiConfig {
   static const String _devSeedReset = '/dev/seed/reset';
 
   // Full URL builders
-  static String healthUrl() => '$baseUrl$_health/';
-  static String healthDetailedUrl() => '$baseUrl$_healthDetailed';
+  static String get _originBase {
+    final uri = Uri.parse(baseUrl);
+    final hasPort = (uri.hasPort && uri.port != 0);
+    final hostPort = hasPort ? '${uri.host}:${uri.port}' : uri.host;
+    return '${uri.scheme}://$hostPort';
+  }
+
+  static String healthUrl() => '$_originBase$_health/';
+  static String healthDetailedUrl() => '$_originBase$_healthDetailed';
   static String loginUrl() => '$baseUrl$_authLogin';
   static String registerUrl() => '$baseUrl$_authRegister';
   static String refreshUrl() => '$baseUrl$_authRefresh';

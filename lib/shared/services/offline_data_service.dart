@@ -8,8 +8,13 @@ import '../../data/models/breathing_session.dart';
 import '../../data/models/breathing_pattern.dart';
 import '../../data/models/custom_emotion.dart';
 import '../../config/api_config.dart';
+import '../logging/mobile_logger.dart';
 
 final logger = Logger();
+final _mobileLogger = MobileLogger(
+  enabled: const String.fromEnvironment('MOBILE_LOGS') == 'true',
+  level: const String.fromEnvironment('LOG_LEVEL', defaultValue: 'info'),
+);
 
 enum DataSource { local, remote, hybrid }
 
@@ -45,6 +50,7 @@ class OfflineDataService {
 
   ConnectivityStatus _connectivityStatus = ConnectivityStatus.unknown;
   Timer? _syncTimer;
+  bool _syncing = false;
   final Map<String, DateTime> _lastSyncTimes = {};
 
   // Connectivity status stream
@@ -109,50 +115,70 @@ class OfflineDataService {
 
   /// Background sync of unsynced data
   Future<void> _backgroundSync() async {
+    if (_syncing) return;
+    _syncing = true;
+    final startedAt = DateTime.now();
+    _mobileLogger.info('sync.start', {'queue_len': await _queueLen()});
     try {
       await _syncUnsyncedData();
+      final latency = DateTime.now().difference(startedAt).inMilliseconds;
+      _mobileLogger.info('sync.end', {'latency_ms': latency});
       logger.i('Background sync completed');
     } catch (e) {
+      _mobileLogger.error('sync.error', {'error': '$e'});
       logger.w('Background sync failed: $e');
+    } finally {
+      _syncing = false;
     }
   }
 
   /// Sync all unsynced data to backend
   Future<void> _syncUnsyncedData() async {
     if (_connectivityStatus != ConnectivityStatus.online) return;
+    // Require authenticated headers before attempting sync
+    try {
+      final headers = await _apiService.getHeaders();
+      if (!headers.containsKey('Authorization')) {
+        _mobileLogger.info('sync.skip', {'reason': 'no_auth_token'});
+        return;
+      }
+    } catch (_) {
+      _mobileLogger.info('sync.skip', {'reason': 'headers_error'});
+      return;
+    }
 
     try {
       // Sync emotional records
       final unsyncedEmotional =
           await _sqliteHelper.getUnsyncedEmotionalRecords();
-      for (final record in unsyncedEmotional) {
-        try {
-          await _apiService.createEmotionalRecord(record);
-          if (record.id != null) {
+      await _syncWithBackoff<EmotionalRecord>(
+        items: unsyncedEmotional,
+        endpoint: 'v1/api/emotional_records/',
+        perform: (item) => _apiService.createEmotionalRecord(item),
+        onSynced: (item) async {
+          if (item.id != null) {
             await _sqliteHelper.markEmotionalRecordAsSynced(
-              int.parse(record.id!),
+              int.parse(item.id!),
             );
           }
-        } catch (e) {
-          logger.e('Failed to sync emotional record: $e');
-        }
-      }
+        },
+      );
 
       // Sync breathing sessions
       final unsyncedSessions =
           await _sqliteHelper.getUnsyncedBreathingSessions();
-      for (final session in unsyncedSessions) {
-        try {
-          await _apiService.createBreathingSession(session);
-          if (session.id != null) {
+      await _syncWithBackoff<BreathingSessionData>(
+        items: unsyncedSessions,
+        endpoint: 'v1/api/breathing_sessions/',
+        perform: (item) => _apiService.createBreathingSession(item),
+        onSynced: (item) async {
+          if (item.id != null) {
             await _sqliteHelper.markBreathingSessionAsSynced(
-              int.parse(session.id!),
+              int.parse(item.id!),
             );
           }
-        } catch (e) {
-          logger.e('Failed to sync breathing session: $e');
-        }
-      }
+        },
+      );
 
       // Sync breathing patterns
       final unsyncedPatterns =
@@ -172,6 +198,81 @@ class OfflineDataService {
       logger.i('Unsynced data sync completed');
     } catch (e) {
       logger.e('Error syncing unsynced data: $e');
+    }
+  }
+
+  Future<int> _queueLen() async {
+    final a = await _sqliteHelper.getUnsyncedEmotionalRecords();
+    final b = await _sqliteHelper.getUnsyncedBreathingSessions();
+    final c = await _sqliteHelper.getUnsyncedBreathingPatterns();
+    return a.length + b.length + c.length;
+  }
+
+  Future<void> _syncWithBackoff<T>({
+    required List<T> items,
+    required String endpoint,
+    required Future<void> Function(T) perform,
+    required Future<void> Function(T) onSynced,
+    int maxRetries = 5,
+  }) async {
+    for (final item in items) {
+      int attempt = 0;
+      while (true) {
+        final sw = Stopwatch()..start();
+        try {
+          _mobileLogger.info('sync.enqueue', {'endpoint': endpoint});
+          await perform(item);
+          await onSynced(item);
+          _mobileLogger.info('sync.dequeue', {
+            'endpoint': endpoint,
+            'latency_ms': sw.elapsedMilliseconds,
+          });
+          break;
+        } on DioException catch (e) {
+          final status = e.response?.statusCode;
+          if (status == 409) {
+            // Conflict treated as synced
+            _mobileLogger.info('sync.conflict', {
+              'endpoint': endpoint,
+              'status': status,
+            });
+            await onSynced(item);
+            break;
+          }
+          attempt += 1;
+          if (attempt > maxRetries) {
+            _mobileLogger.error('sync.giveup', {
+              'endpoint': endpoint,
+              'status': status,
+              'retry_count': attempt,
+            });
+            break;
+          }
+          final backoffMs = (200 * (1 << (attempt - 1))).clamp(200, 8000);
+          _mobileLogger.info('sync.retry', {
+            'endpoint': endpoint,
+            'retry_count': attempt,
+            'backoff_ms': backoffMs,
+          });
+          await Future<void>.delayed(Duration(milliseconds: backoffMs));
+        } catch (e) {
+          attempt += 1;
+          if (attempt > maxRetries) {
+            _mobileLogger.error('sync.giveup', {
+              'endpoint': endpoint,
+              'retry_count': attempt,
+            });
+            break;
+          }
+          final backoffMs = (200 * (1 << (attempt - 1))).clamp(200, 8000);
+          _mobileLogger.info('sync.retry', {
+            'endpoint': endpoint,
+            'retry_count': attempt,
+            'backoff_ms': backoffMs,
+          });
+          await Future<void>.delayed(Duration(milliseconds: backoffMs));
+        }
+      }
     }
   }
 

@@ -10,6 +10,7 @@ import 'models/custom_emotion.dart';
 import 'models/emotional_record.dart';
 import 'models/user_limitations.dart';
 import '../config/api_config.dart';
+import '../shared/net/api_base.dart';
 
 import '../utils/data_validator.dart';
 import 'package:logger/logger.dart';
@@ -142,7 +143,7 @@ class ApiService {
 
     try {
       final response = await _dio.post(
-        ApiConfig.emotionalRecordsUrl(),
+        ApiBaseHelper.endpoint('/v1/api/emotional_records/').toString(),
         data: record.toJson(),
         options: Options(headers: await _getHeaders()),
       );
@@ -169,7 +170,7 @@ class ApiService {
       );
 
       final response = await _dio.get(
-        ApiConfig.emotionalRecordsUrl(),
+        ApiBaseHelper.endpoint('/v1/api/emotional_records/').toString(),
         options: Options(headers: await _getHeaders()),
       );
       _logger.i('Emotional records response: ${response.statusCode}');
@@ -196,7 +197,7 @@ class ApiService {
   ) async {
     try {
       final response = await _dio.post(
-        ApiConfig.breathingSessionsUrl(),
+        ApiBaseHelper.endpoint('/v1/api/breathing_sessions/').toString(),
         data: session.toJson(),
         options: Options(headers: await _getHeaders()),
       );
@@ -223,7 +224,7 @@ class ApiService {
       );
 
       final response = await _dio.get(
-        ApiConfig.breathingSessionsUrl(),
+        ApiBaseHelper.endpoint('/v1/api/breathing_sessions/').toString(),
         options: Options(headers: await _getHeaders()),
       );
       _logger.i('Breathing sessions response: ${response.statusCode}');
@@ -251,7 +252,7 @@ class ApiService {
   ) async {
     try {
       final response = await _dio.post(
-        ApiConfig.breathingPatternsUrl(),
+        ApiBaseHelper.endpoint('/v1/api/breathing_patterns/').toString(),
         data: pattern.toJson(),
         options: Options(headers: await _getHeaders()),
       );
@@ -274,7 +275,7 @@ class ApiService {
   Future<List<BreathingPattern>> getBreathingPatterns() async {
     try {
       final response = await _dio.get(
-        ApiConfig.breathingPatternsUrl(),
+        ApiBaseHelper.endpoint('/v1/api/breathing_patterns/').toString(),
         options: Options(headers: await _getHeaders()),
       );
       return _handleListResponse(
@@ -297,7 +298,7 @@ class ApiService {
   Future<CustomEmotion> createCustomEmotion(CustomEmotion emotion) async {
     try {
       final response = await _dio.post(
-        ApiConfig.customEmotionsUrl(),
+        ApiBaseHelper.endpoint('/v1/api/custom_emotions/').toString(),
         data: emotion.toJson(),
         options: Options(headers: await _getHeaders()),
       );
@@ -317,7 +318,7 @@ class ApiService {
   Future<List<CustomEmotion>> getCustomEmotions() async {
     try {
       final response = await _dio.get(
-        ApiConfig.customEmotionsUrl(),
+        ApiBaseHelper.endpoint('/v1/api/custom_emotions/').toString(),
         options: Options(headers: await _getHeaders()),
       );
       return _handleListResponse(
@@ -340,7 +341,7 @@ class ApiService {
   Future<UserLimitations> getUserLimitations() async {
     try {
       final response = await _dio.get(
-        ApiConfig.userLimitationsUrl(),
+        ApiBaseHelper.endpoint('/v1/api/user/limitations').toString(),
         options: Options(headers: await _getHeaders()),
       );
       return _handleResponse(response, (data) {
@@ -382,7 +383,7 @@ class ApiService {
     Map<String, dynamic>? context,
   }) async {
     final response = await _dio.post(
-      ApiConfig.chatUrl(),
+      ApiBaseHelper.endpoint('/v1/api/chat').toString(),
       data: {
         'agent_type': agentType,
         'message': message,
@@ -406,7 +407,7 @@ class ApiService {
   // Get available agents
   Future<List<Map<String, dynamic>>> getAgents() async {
     final response = await _dio.get(
-      ApiConfig.agentsListUrl(),
+      ApiBaseHelper.endpoint('/v1/api/agents').toString(),
       options: Options(headers: await _getHeaders()),
     );
     if (response.statusCode == 200) {
@@ -420,7 +421,7 @@ class ApiService {
   // Get agent status
   Future<Map<String, dynamic>> getAgentStatus(String agentType) async {
     final response = await _dio.get(
-      ApiConfig.agentStatusUrl(agentType),
+      ApiBaseHelper.endpoint('/v1/api/agents/$agentType/status').toString(),
       options: Options(headers: await _getHeaders()),
     );
     if (response.statusCode == 200) {
@@ -433,7 +434,7 @@ class ApiService {
   // Clear agent memory
   Future<void> clearAgentMemory(String agentType) async {
     final response = await _dio.delete(
-      ApiConfig.agentMemoryUrl(agentType),
+      ApiBaseHelper.endpoint('/v1/api/agents/$agentType/memory').toString(),
       options: Options(headers: await _getHeaders()),
     );
     if (response.statusCode != 200) {
@@ -444,7 +445,7 @@ class ApiService {
   // Get conversations
   Future<List<Map<String, dynamic>>> getConversations() async {
     final response = await _dio.get(
-      '${ApiConfig.baseUrl}/v1/api/conversations',
+      ApiBaseHelper.endpoint('/v1/api/conversations').toString(),
       options: Options(headers: await _getHeaders()),
     );
     if (response.statusCode == 200) {
@@ -467,7 +468,7 @@ class ApiService {
   // Dev seed endpoints
   Future<Map<String, dynamic>> devSeedLoadPresetData() async {
     final response = await _dio.post(
-      ApiConfig.devSeedLoadPresetDataUrl(),
+      ApiBaseHelper.endpoint('/v1/api/dev/seed/load_preset_data').toString(),
       options: Options(headers: await _getHeaders()),
     );
     return _handleResponse(response, (data) => data);
@@ -475,7 +476,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> devSeedReset() async {
     final response = await _dio.post(
-      ApiConfig.devSeedResetUrl(),
+      ApiBaseHelper.endpoint('/v1/api/dev/seed/reset').toString(),
       options: Options(headers: await _getHeaders()),
     );
     return _handleResponse(response, (data) => data);

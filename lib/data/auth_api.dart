@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import '../config/api_config.dart';
+import '../shared/net/api_base.dart';
 
 class AuthTokens {
   final String accessToken;
@@ -46,6 +47,7 @@ class AuthApi {
         error: true,
       ),
     );
+    // Ensure auth headers and refresh are handled even if ApiClient isn't used
     _dio.interceptors.add(_AuthInterceptor(this));
   }
 
@@ -59,7 +61,7 @@ class AuthApi {
     String? lastName,
   }) async {
     final res = await _dio.post(
-      ApiConfig.registerUrl(),
+      ApiBaseHelper.endpoint('/v1/api/auth/register').toString(),
       data: {
         'email': email,
         'password': password,
@@ -76,7 +78,7 @@ class AuthApi {
     required String password,
   }) async {
     final res = await _dio.post(
-      ApiConfig.loginUrl(),
+      ApiBaseHelper.endpoint('/v1/api/auth/login').toString(),
       data: {'email': email, 'password': password},
     );
     final data = res.data as Map<String, dynamic>;
@@ -92,7 +94,7 @@ class AuthApi {
       );
     }
     final res = await _dio.post(
-      ApiConfig.refreshUrl(),
+      ApiBaseHelper.endpoint('/v1/api/auth/refresh').toString(),
       data: {'refresh_token': refreshToken},
     );
     final data = res.data as Map<String, dynamic>;
@@ -107,18 +109,23 @@ class AuthApi {
   }
 
   Future<Map<String, dynamic>> me() async {
-    final res = await _dio.get(ApiConfig.meUrl());
+    final res = await _dio.get(
+      ApiBaseHelper.endpoint('/v1/api/auth/me').toString(),
+    );
     return res.data as Map<String, dynamic>;
   }
 
   String? get accessToken => _inMemoryAccess;
 
   Future<String?> getValidAccessToken() async {
-    await _ensureFreshAccessToken();
-    if (_inMemoryAccess != null && _inMemoryAccess!.isNotEmpty) {
-      return _inMemoryAccess;
+    // If we don't have any token yet, do NOT attempt refresh
+    if ((_inMemoryAccess == null || _inMemoryAccess!.isEmpty)) {
+      final stored = await _storage.read(key: 'access_token');
+      if (stored == null || stored.isEmpty) return null;
+      _inMemoryAccess = stored;
     }
-    return await _storage.read(key: 'access_token');
+    await _ensureFreshAccessToken();
+    return _inMemoryAccess;
   }
 
   Future<void> _persistAccess(String token, int expiresIn) async {
@@ -194,13 +201,23 @@ class _AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    final path = options.path;
+    final isRefresh = path.contains('/auth/refresh');
+    final isLogin = path.contains('/auth/login');
+    final isRegister = path.contains('/auth/register');
     try {
-      await _auth._ensureFreshAccessToken();
-      final token =
+      // Only attach if we already have a token; avoid pre-login refresh
+      String? token =
           _auth.accessToken ??
           await const FlutterSecureStorage().read(key: 'access_token');
-      if (token != null && token.isNotEmpty) {
-        options.headers['Authorization'] = 'Bearer $token';
+      if (token != null && token.isNotEmpty && !isRefresh) {
+        await _auth._ensureFreshAccessToken();
+        token =
+            _auth.accessToken ??
+            await const FlutterSecureStorage().read(key: 'access_token');
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
       }
     } catch (_) {
       // proceed without token
@@ -211,7 +228,14 @@ class _AuthInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     // If unauthorized, try a single refresh then retry
-    if (err.response?.statusCode == 401) {
+    final path = err.requestOptions.path;
+    final isRefresh = path.contains('/auth/refresh');
+    final isLogin = path.contains('/auth/login');
+    final isRegister = path.contains('/auth/register');
+    if (err.response?.statusCode == 401 &&
+        !isRefresh &&
+        !isLogin &&
+        !isRegister) {
       try {
         await _auth.refresh();
         final req = await _retry(err.requestOptions);

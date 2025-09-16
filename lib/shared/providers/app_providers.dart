@@ -85,15 +85,19 @@ final calendarProvider = offlineCalendarProvider;
 /// App Initialization State Provider
 final appInitializationProvider = FutureProvider<bool>((ref) async {
   try {
-    // Initialize all core services
-    final syncManager = ref.read(syncManagerProvider);
-    final offlineDataService = ref.read(offlineDataServiceProvider);
-
-    // Initialize services in parallel
-    await Future.wait([
-      syncManager.initialize(),
-      offlineDataService.initialize(),
-    ]);
+    const bool syncEnabled = bool.fromEnvironment(
+      'SYNC_ENABLED',
+      defaultValue: true,
+    );
+    if (syncEnabled) {
+      // Initialize all core services
+      final syncManager = ref.read(syncManagerProvider);
+      final offlineDataService = ref.read(offlineDataServiceProvider);
+      await Future.wait([
+        syncManager.initialize(),
+        offlineDataService.initialize(),
+      ]);
+    }
 
     return true;
   } catch (e) {
