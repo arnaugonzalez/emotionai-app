@@ -7,7 +7,7 @@
         android:usesCleartextTraffic="true"
         android:enableOnBackInvokedCallback="true">
         <activity
-            android:name=".MainActivity"
+            android:name="arnaugdelm.emotion_ai.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""

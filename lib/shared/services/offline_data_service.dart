@@ -65,7 +65,15 @@ class OfflineDataService {
   /// Check connectivity by trying to reach backend
   Future<bool> _checkConnectivity() async {
     try {
-      final response = await Dio().get(ApiConfig.healthUrl());
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 5),
+        ),
+      );
+      final response = await dio
+          .get(ApiConfig.healthUrl())
+          .timeout(const Duration(seconds: 5));
       final isOnline = response.statusCode == 200;
       final newStatus =
           isOnline ? ConnectivityStatus.online : ConnectivityStatus.offline;

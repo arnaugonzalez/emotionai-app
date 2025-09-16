@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/user_profile.dart';
 import '../models/therapy_context.dart';
@@ -7,21 +6,18 @@ import '../../config/api_config.dart';
 import '../auth_api.dart';
 
 class ProfileService {
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
   final Dio _dio;
+  final AuthApi _auth;
 
-  ProfileService({Dio? dio}) : _dio = dio ?? AuthApi().dio;
-
-  Future<String?> _getToken() async {
-    return await _storage.read(key: 'auth_token');
-  }
+  ProfileService({Dio? dio, AuthApi? auth})
+    : _auth = auth ?? AuthApi(),
+      _dio = dio ?? (auth ?? AuthApi()).dio;
 
   Future<Map<String, String>> _getHeaders() async {
-    final token = await _getToken();
-    return {
-      'Content-Type': 'application/json; charset=UTF-8',
-      if (token != null) 'Authorization': 'Bearer $token',
-    };
+    final token = await _auth.getValidAccessToken();
+    return token != null
+        ? ApiConfig.authHeaders(token)
+        : ApiConfig.defaultHeaders;
   }
 
   /// Get user profile

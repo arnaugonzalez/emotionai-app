@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.emotion_ai"
+    namespace = "arnaugdelm.emotion_ai"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
     compileOptions {

@@ -5,6 +5,9 @@ import 'package:emotion_ai/config/api_config.dart';
 import 'package:emotion_ai/utils/data_validator.dart';
 import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/status.dart' as ws_status;
+import 'package:emotion_ai/data/auth_api.dart';
 
 final logger = Logger();
 
@@ -80,6 +83,9 @@ class CalendarEventsProvider extends ChangeNotifier {
   Map<DateTime, List<EmotionalRecord>> emotionalEvents = {};
   Map<DateTime, List<BreathingSessionData>> breathingEvents = {};
   String? errorMessage;
+  WebSocketChannel? _ws;
+  bool _wsConnected = false;
+  AuthApi? _auth;
 
   /// Fetch events with comprehensive validation and error handling
   Future<void> fetchEvents() async {
@@ -97,12 +103,21 @@ class CalendarEventsProvider extends ChangeNotifier {
           receiveTimeout: ApiConfig.receiveTimeout,
         ),
       );
+      // Ensure Authorization header is included for protected endpoints
+      final auth = _auth ?? AuthApi();
+      final token = await auth.getValidAccessToken();
+      final options = Options(
+        headers:
+            token != null
+                ? ApiConfig.authHeaders(token)
+                : ApiConfig.defaultHeaders,
+      );
       final emotionalResponse = await dio
-          .get(ApiConfig.emotionalRecordsUrl())
-          .timeout(const Duration(seconds: 5));
+          .get(ApiConfig.emotionalRecordsUrl(), options: options)
+          .timeout(const Duration(seconds: 8));
       final breathingResponse = await dio
-          .get(ApiConfig.breathingSessionsUrl())
-          .timeout(const Duration(seconds: 5));
+          .get(ApiConfig.breathingSessionsUrl(), options: options)
+          .timeout(const Duration(seconds: 8));
 
       logger.i(
         'API responses - Emotional: ${emotionalResponse.statusCode}, Breathing: ${breathingResponse.statusCode}',
@@ -175,6 +190,13 @@ class CalendarEventsProvider extends ChangeNotifier {
         logger.e(error);
         throw Exception(error);
       }
+    } on DioException catch (e) {
+      logger.e('Network error fetching events: ${e.message}');
+      errorMessage = 'Failed to reach server. Please check your connection.';
+      state = CalendarLoadState.error;
+      emotionalEvents = {};
+      breathingEvents = {};
+      notifyListeners();
     } catch (e) {
       logger.e('Error fetching calendar events: $e');
       errorMessage = e.toString();
@@ -186,5 +208,40 @@ class CalendarEventsProvider extends ChangeNotifier {
 
       notifyListeners();
     }
+  }
+
+  Future<void> connectRealtime(AuthApi auth) async {
+    try {
+      _auth = auth;
+      final token = await auth.getValidAccessToken();
+      if (token == null) return;
+      final wsBase =
+          ApiConfig.wsBaseUrl; // can be overridden by --dart-define=WS_BASE_URL
+      final uri = Uri.parse('$wsBase/ws/calendar?token=$token');
+      _ws = WebSocketChannel.connect(uri);
+      _wsConnected = true;
+      _ws!.stream.listen(
+        (data) async {
+          // For now, on any calendar event, refresh data
+          await fetchEvents();
+        },
+        onError: (e) {
+          _wsConnected = false;
+        },
+        onDone: () {
+          _wsConnected = false;
+        },
+      );
+    } catch (e) {
+      _wsConnected = false;
+    }
+  }
+
+  void disposeRealtime() {
+    try {
+      _ws?.sink.close(ws_status.normalClosure);
+    } catch (_) {}
+    _ws = null;
+    _wsConnected = false;
   }
 }

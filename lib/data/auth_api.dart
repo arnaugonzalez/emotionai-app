@@ -36,6 +36,16 @@ class AuthApi {
             ),
           ),
       _storage = storage ?? const FlutterSecureStorage() {
+    _dio.interceptors.add(
+      LogInterceptor(
+        request: true,
+        requestHeader: true,
+        requestBody: true,
+        responseHeader: false,
+        responseBody: true,
+        error: true,
+      ),
+    );
     _dio.interceptors.add(_AuthInterceptor(this));
   }
 

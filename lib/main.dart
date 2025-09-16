@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'shared/services/secure_env_service.dart';
 import 'shared/providers/app_providers.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/auth_provider.dart';
 
 final logger = Logger();
 
@@ -76,11 +77,21 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     // Trigger app initialization
     Future.microtask(() {
       ref.read(appInitializationProvider);
+      // Connect realtime calendar if token already present (Riverpod)
+      final auth = ref.read(authApiProvider);
+      auth.getValidAccessToken().then((token) async {
+        if (token != null && token.isNotEmpty) {
+          await ref.read(realtimeCalendarProvider).connectRealtime(auth);
+        }
+      });
     });
   }
 
   @override
   void dispose() {
+    try {
+      ref.read(realtimeCalendarProvider).disposeRealtime();
+    } catch (_) {}
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

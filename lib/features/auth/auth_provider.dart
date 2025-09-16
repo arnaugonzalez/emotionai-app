@@ -1,13 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:emotion_ai/data/api_service.dart';
 import 'package:emotion_ai/data/services/profile_service.dart';
+import 'package:emotion_ai/data/auth_api.dart';
+import 'package:emotion_ai/features/calendar/events/calendar_events_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
+final authApiProvider = Provider<AuthApi>((ref) => AuthApi());
+final realtimeCalendarProvider = ChangeNotifierProvider<CalendarEventsProvider>(
+  (ref) => CalendarEventsProvider(),
+);
 
 final authProvider = StateNotifierProvider<AuthNotifier, bool>((ref) {
-  return AuthNotifier(ref.watch(apiServiceProvider));
+  return AuthNotifier(ref, ref.watch(apiServiceProvider));
 });
 
 // Provider to check if user has admin access
@@ -18,8 +24,9 @@ final adminAccessProvider = FutureProvider<bool>((ref) async {
 
 class AuthNotifier extends StateNotifier<bool> {
   final ApiService _apiService;
+  final Ref _ref;
 
-  AuthNotifier(this._apiService) : super(false) {
+  AuthNotifier(this._ref, this._apiService) : super(false) {
     _checkToken();
   }
 
@@ -44,6 +51,12 @@ class AuthNotifier extends StateNotifier<bool> {
           print('No existing profile found: $e');
         }
 
+        // Connect realtime calendar after token available
+        try {
+          final auth = _ref.read(authApiProvider);
+          await _ref.read(realtimeCalendarProvider).connectRealtime(auth);
+        } catch (_) {}
+
         return true;
       }
       return false;
@@ -54,6 +67,10 @@ class AuthNotifier extends StateNotifier<bool> {
 
   Future<void> logout() async {
     await _apiService.logout();
+    // Close realtime channel
+    try {
+      _ref.read(realtimeCalendarProvider).disposeRealtime();
+    } catch (_) {}
     // Clear admin access on logout
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('admin_access', false);

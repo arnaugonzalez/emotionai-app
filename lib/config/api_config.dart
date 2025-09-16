@@ -8,10 +8,10 @@
 library;
 
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode, debugPrint;
 
 class ApiConfig {
-  // Optional explicit BASE_URL override (e.g., https://emotionai.duckdns.org)
+  // Optional explicit BASE_URL override
   static const String _explicitBaseUrl = String.fromEnvironment(
     'BASE_URL',
     defaultValue: '',
@@ -37,12 +37,25 @@ class ApiConfig {
     defaultValue: '192.168.77.140', // Update this to your machine's current IP
   );
 
+  // Optional explicit WS base URL (e.g., wss://emotionai.duckdns.org)
+  static const String _explicitWsBase = String.fromEnvironment(
+    'WS_BASE_URL',
+    defaultValue: '',
+  );
+
+  // Enable verbose config logs only when launching locally with flutter run
+  static const bool _showConfigLogs = bool.fromEnvironment(
+    'SHOW_CONFIG_LOGS',
+    defaultValue: false,
+  );
+
+  static bool get _shouldLog => kDebugMode && _showConfigLogs;
+
   // Static base URLs for deployed environments
   static const Map<String, String> _deployedUrls = {
     'staging': 'https://staging-api.emotionai.app',
-    // For production, prefer passing BASE_URL via --dart-define at build/run time
-    // to avoid hardcoding the domain in the repository.
-    'production': 'https://api.example.com',
+    // Default production DNS; can be overridden by --dart-define=BASE_URL
+    'production': _explicitBaseUrl,
   };
 
   // API Configuration with dynamic URL building
@@ -54,21 +67,44 @@ class ApiConfig {
   }
 
   static String _buildDynamicUrl() {
-    // For deployed environments, use predefined URLs
+    // For deployed, prefer explicit BASE_URL; otherwise use map or fallback DNS
     if (_backendType == 'deployed') {
-      return _deployedUrls[_environment] ?? _deployedUrls['staging']!;
+      final mapped = _deployedUrls[_environment] ?? '';
+      final url =
+          _explicitBaseUrl.isNotEmpty
+              ? _explicitBaseUrl
+              : (mapped.isNotEmpty ? mapped : 'https://emotionai.duckdns.org');
+      if (_shouldLog) {
+        debugPrint(
+          '🔗 API Config: Using deployed URL: $url (Env: $_environment)',
+        );
+      }
+      return url;
     }
 
-    // For local/docker development, build URL based on device and backend type
+    // For local/docker: build URL based on device and backend type
     final host = _getHost();
     final port = _getPort();
     final protocol = _getProtocol();
 
     final url = '$protocol://$host:$port';
-    print(
-      '🔗 API Config: Built URL: $url (Backend: $_backendType, Device: $_deviceType, Environment: $_environment)',
-    );
+    if (_shouldLog) {
+      debugPrint(
+        '🔗 API Config: Built URL: $url (Backend: $_backendType, Device: $_deviceType, Environment: $_environment)',
+      );
+    }
     return url;
+  }
+
+  // Derived WS base (scheme + host [+ :port])
+  static String get wsBaseUrl {
+    if (_explicitWsBase.isNotEmpty) return _explicitWsBase;
+    final uri = Uri.parse(baseUrl);
+    final scheme = (uri.scheme == 'https') ? 'wss' : 'ws';
+    // If port is default (0 in Uri), omit it; otherwise include
+    final hasPort = (uri.hasPort && uri.port != 0);
+    final hostPort = hasPort ? '${uri.host}:${uri.port}' : uri.host;
+    return '$scheme://$hostPort';
   }
 
   static String _getHost() {
@@ -89,20 +125,13 @@ class ApiConfig {
     switch (deviceType) {
       case 'emulator':
         return '10.0.2.2'; // Android emulator special IP
-      case 'physical':
-        return '192.168.77.140'; // Local network IP
       case 'desktop':
       case 'web':
         return 'localhost';
+      case 'physical':
       default:
-        // Fallback: try to detect based on environment name
-        if (_environment.contains('emulator')) {
-          return '10.0.2.2';
-        } else if (_environment.contains('local')) {
-          return 'localhost';
-        } else {
-          return '192.168.77.140'; // Default to physical device
-        }
+        // Prefer localhost for simplicity in local dev when using USB/WiFi debug
+        return 'localhost';
     }
   }
 
@@ -261,38 +290,39 @@ class ApiConfig {
 
   // Development utilities
   static void printConfig() {
+    if (!_shouldLog) return;
     final detectedDeviceType = _detectDeviceType();
 
-    print('');
-    print('🚀 ===== EmotionAI API Configuration =====');
-    print('📊 Environment: $_environment');
-    print('🔧 Backend Type: $_backendType');
-    print('📱 Device Type: $_deviceType (detected: $detectedDeviceType)');
-    print('🌐 Base URL: $baseUrl');
-    print('🔗 Host Resolution: ${_getHost()}');
+    debugPrint('');
+    debugPrint('🚀 ===== EmotionAI API Configuration =====');
+    debugPrint('📊 Environment: $_environment');
+    debugPrint('🔧 Backend Type: $_backendType');
+    debugPrint('📱 Device Type: $_deviceType (detected: $detectedDeviceType)');
+    debugPrint('🌐 Base URL: $baseUrl');
+    debugPrint('🔗 Host Resolution: ${_getHost()}');
     if (_backendType == 'docker') {
-      print('🐳 Docker Host: $_dockerHost');
+      debugPrint('🐳 Docker Host: $_dockerHost');
     }
-    print('🔍 Debug Mode: $enableDebugLogs');
-    print('📋 Mock Data: $enableMockData');
-    print('');
-    print('📡 Key Endpoints:');
-    print('  🏥 Health: ${healthUrl()}');
-    print('  🔐 Login: ${loginUrl()}');
-    print('  💬 Chat: ${chatUrl()}');
-    print('  📊 Records: ${emotionalRecordsUrl()}');
-    print('');
-    print('🔧 Platform Info:');
-    print('  📱 Is Web: $kIsWeb');
+    debugPrint('🔍 Debug Mode: $enableDebugLogs');
+    debugPrint('📋 Mock Data: $enableMockData');
+    debugPrint('');
+    debugPrint('📡 Key Endpoints:');
+    debugPrint('  🏥 Health: ${healthUrl()}');
+    debugPrint('  🔐 Login: ${loginUrl()}');
+    debugPrint('  💬 Chat: ${chatUrl()}');
+    debugPrint('  📊 Records: ${emotionalRecordsUrl()}');
+    debugPrint('');
+    debugPrint('🔧 Platform Info:');
+    debugPrint('  📱 Is Web: $kIsWeb');
     if (!kIsWeb) {
       try {
-        print('  💻 Platform: ${Platform.operatingSystem}');
+        debugPrint('  💻 Platform: ${Platform.operatingSystem}');
       } catch (e) {
-        print('  💻 Platform: Unknown');
+        debugPrint('  💻 Platform: Unknown');
       }
     }
-    print('========================================');
-    print('');
+    debugPrint('========================================');
+    debugPrint('');
   }
 
   // Enhanced configuration validation
@@ -331,10 +361,10 @@ class ApiConfig {
       isValid = false;
     }
 
-    if (!isValid) {
-      print('❌ Configuration Issues Found:');
+    if (!isValid && _shouldLog) {
+      debugPrint('❌ Configuration Issues Found:');
       for (final issue in issues) {
-        print('  • $issue');
+        debugPrint('  • $issue');
       }
     }
 

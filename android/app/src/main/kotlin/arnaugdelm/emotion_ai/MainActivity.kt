@@ -1,5 +1,7 @@
-package com.example.emotion_ai
+package arnaugdelm.emotion_ai
 
 import io.flutter.embedding.android.FlutterActivity
 
 class MainActivity : FlutterActivity()
+
+

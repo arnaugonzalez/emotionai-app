@@ -50,6 +50,7 @@ dependencies:
   crypto: ^3.0.3 # For cryptographic operations
   connectivity_plus: ^6.1.0 # For network connectivity detection
   visibility_detector: ^0.4.0+2
+  web_socket_channel: ^2.4.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
