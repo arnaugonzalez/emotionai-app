@@ -36,6 +36,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     });
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Fallback fetch when screen appears or dependencies change
+    Future.microtask(() {
+      if (!mounted) return;
+      ref.read(offlineCalendarProvider.notifier).fetchEvents();
+    });
+  }
+
   Future<void> _loadPresetData() async {
     if (!mounted) return;
 

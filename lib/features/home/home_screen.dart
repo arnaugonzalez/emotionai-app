@@ -6,6 +6,8 @@ import 'package:emotion_ai/shared/providers/app_providers.dart';
 import '../../features/custom_emotion/custom_emotion_dialog.dart';
 import '../usage/presentation/widgets/token_usage_display.dart';
 import '../../shared/widgets/validation_error_widget.dart';
+import 'package:emotion_ai/shared/providers/app_providers.dart'
+    show apiServiceProvider;
 import 'package:emotion_ai/core/theme/app_theme.dart';
 import 'package:emotion_ai/shared/widgets/gradient_app_bar.dart';
 import 'package:emotion_ai/shared/widgets/themed_card.dart';
@@ -55,12 +57,26 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final TextEditingController _messageController = TextEditingController();
   bool _isSaving = false; // Add debounce flag
+  List<String> _todaySuggestions = const [];
 
   @override
   void initState() {
     super.initState();
     // Initial data fetch
     Future.microtask(() => ref.invalidate(customEmotionsProvider));
+    // Fetch today's suggestions on screen load
+    Future.microtask(() async {
+      try {
+        final today = DateTime.now();
+        final suggestions = await ref
+            .read(apiServiceProvider)
+            .getDailySuggestions(today);
+        if (!mounted) return;
+        setState(() {
+          _todaySuggestions = suggestions;
+        });
+      } catch (_) {}
+    });
   }
 
   @override
@@ -209,6 +225,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
 
       await apiService.createEmotionalRecord(record);
+      // Optionally refresh today's suggestions from the API
+      try {
+        final today = DateTime.now();
+        final suggestions = await ref
+            .read(apiServiceProvider)
+            .getDailySuggestions(today);
+        if (mounted) {
+          setState(() {
+            _todaySuggestions = suggestions;
+          });
+        }
+      } catch (_) {}
       if (!mounted) return;
       ValidationHelper.showSuccessSnackBar(
         context,
@@ -570,6 +598,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   : const Text('Save record'),
                         ),
                         const SizedBox(height: 16),
+                        if (_todaySuggestions.isNotEmpty)
+                          ThemedCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Today\'s Suggestions',
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 8),
+                                ..._todaySuggestions.map(
+                                  (s) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 6),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Icon(
+                                          Icons.chevron_right,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(child: Text(s)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (_todaySuggestions.isNotEmpty)
+                          const SizedBox(height: 16),
                         const TokenUsageDisplay(),
                       ],
                     ),
