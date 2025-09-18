@@ -91,7 +91,22 @@ class TokenUsageDisplay extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          // Monthly cost just below the header row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Monthly Cost',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              Text(
+                '€${(limitations.monthlyCost).toStringAsFixed(2)}',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           if (!limitations.isUnlimited) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(4),

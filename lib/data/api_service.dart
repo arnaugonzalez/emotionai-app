@@ -352,6 +352,9 @@ class ApiService {
         final canMakeRequest = data['can_make_request'] ?? true;
         final limitMessage = data['limit_message'];
         final reset = data['limit_reset_time'];
+        final dailyTokensUsed = (data['daily_tokens_used'] ?? 0) as int;
+        final dailyCost = (data['daily_cost'] ?? 0.0) as num;
+        final monthlyCost = (data['monthly_cost'] ?? 0.0) as num;
 
         return UserLimitations(
           dailyTokenLimit: monthlyLimit,
@@ -361,7 +364,9 @@ class ApiService {
           limitMessage: limitMessage,
           limitResetTime: reset != null ? DateTime.parse(reset) : null,
           dailyCostLimit: 0,
-          dailyCostUsed: 0,
+          dailyCostUsed: dailyCost.toDouble(),
+          monthlyCost: monthlyCost.toDouble(),
+          todayTokensUsed: dailyTokensUsed,
         );
       });
     } on ApiException {
@@ -373,6 +378,41 @@ class ApiService {
       );
     } catch (e) {
       throw ApiExceptionFactory.fromException(e);
+    }
+  }
+
+  // Daily Suggestions
+  Future<List<String>> getDailySuggestions(DateTime date) async {
+    try {
+      final dateStr =
+          '${date.toUtc().year.toString().padLeft(4, '0')}-${date.toUtc().month.toString().padLeft(2, '0')}-${date.toUtc().day.toString().padLeft(2, '0')}';
+      final response = await _dio.get(
+        ApiBaseHelper.endpoint(
+          '/v1/api/suggestions',
+        ).replace(queryParameters: {'date': dateStr}).toString(),
+        options: Options(headers: await _getHeaders()),
+      );
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data is List) {
+          return data.map((e) => e.toString()).toList();
+        }
+        return const <String>[];
+      }
+      throw ApiExceptionFactory.fromResponse(
+        response.statusCode ?? 0,
+        jsonEncode(response.data),
+      );
+    } on ApiException {
+      rethrow;
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
+    } catch (e) {
+      _logger.e('Error fetching daily suggestions: $e');
+      return const <String>[];
     }
   }
 

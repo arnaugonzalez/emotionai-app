@@ -7,6 +7,8 @@ class UserLimitations {
   final DateTime? limitResetTime;
   final double dailyCostLimit;
   final double dailyCostUsed;
+  final double monthlyCost;
+  final int todayTokensUsed;
 
   UserLimitations({
     required this.dailyTokenLimit,
@@ -17,6 +19,8 @@ class UserLimitations {
     this.limitResetTime,
     required this.dailyCostLimit,
     required this.dailyCostUsed,
+    this.monthlyCost = 0.0,
+    this.todayTokensUsed = 0,
   });
 
   factory UserLimitations.fromJson(Map<String, dynamic> json) {
@@ -32,6 +36,9 @@ class UserLimitations {
               : null,
       dailyCostLimit: (json['daily_cost_limit'] ?? 0.0).toDouble(),
       dailyCostUsed: (json['daily_cost_used'] ?? 0.0).toDouble(),
+      monthlyCost: (json['monthly_cost'] ?? 0.0).toDouble(),
+      todayTokensUsed:
+          json['daily_tokens_used'] ?? json['today_tokens_used'] ?? 0,
     );
   }
 
@@ -45,6 +52,8 @@ class UserLimitations {
       'limit_reset_time': limitResetTime?.toIso8601String(),
       'daily_cost_limit': dailyCostLimit,
       'daily_cost_used': dailyCostUsed,
+      'monthly_cost': monthlyCost,
+      'today_tokens_used': todayTokensUsed,
     };
   }
 
