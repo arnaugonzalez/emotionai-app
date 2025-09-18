@@ -149,12 +149,20 @@ class BreathingMenuScreen extends ConsumerWidget {
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           final width = constraints.maxWidth;
-                          // Increase height for small screens to avoid overflow
-                          final childAspectRatio = width < 380 ? 0.85 : 1.05;
+                          // Enforce minimum 2 cards per row (3 on large screens)
+                          final int crossAxisCount = width >= 900 ? 3 : 2;
+                          // Taller cards on narrow widths to avoid clipping; ensure enough height for title + button
+                          final double childAspectRatio =
+                              width < 360
+                                  ? 0.58
+                                  : width < 480
+                                  ? 0.70
+                                  : 0.90;
+
                           return GridView.builder(
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
+                                  crossAxisCount: crossAxisCount,
                                   childAspectRatio: childAspectRatio,
                                   crossAxisSpacing: 16,
                                   mainAxisSpacing: 16,
@@ -186,6 +194,11 @@ class _BreathingPatternCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final double baseFont = media.size.width < 380 ? 12 : 14;
+    final double titleFont = media.size.width < 380 ? 14 : 16;
+    final double chipFont = media.size.width < 380 ? 10 : 12;
+    final double padding = media.size.width < 380 ? 12 : 16;
     final colors = [
       AppTheme.primaryViolet,
       AppTheme.primaryPink,
@@ -211,7 +224,7 @@ class _BreathingPatternCard extends StatelessWidget {
             border: Border.all(color: cardColor.withOpacity(0.3), width: 1),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(padding),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -219,12 +232,16 @@ class _BreathingPatternCard extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(padding * 0.5),
                       decoration: BoxDecoration(
                         color: cardColor.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(Icons.air, color: cardColor, size: 20),
+                      child: Icon(
+                        Icons.air,
+                        color: cardColor,
+                        size: baseFont + 6,
+                      ),
                     ),
                     const Spacer(),
                     Text(
@@ -232,7 +249,7 @@ class _BreathingPatternCard extends StatelessWidget {
                       style: TextStyle(
                         color: cardColor,
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        fontSize: chipFont,
                       ),
                     ),
                   ],
@@ -247,11 +264,12 @@ class _BreathingPatternCard extends StatelessWidget {
                         ).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: cardColor,
+                          fontSize: titleFont,
                         );
                         final String cappedTitle =
                             (pattern.name).characters.take(30).toString();
                         final double lineHeight =
-                            (titleStyle?.fontSize ?? 16) * 1.25;
+                            (titleStyle?.fontSize ?? titleFont) * 1.40;
                         return SizedBox(
                           height: lineHeight,
                           width: double.infinity,
@@ -266,7 +284,7 @@ class _BreathingPatternCard extends StatelessWidget {
                         );
                       },
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: padding * 0.35),
                     Row(
                       children: [
                         _BreathingPhaseIndicator(
@@ -292,7 +310,7 @@ class _BreathingPatternCard extends StatelessWidget {
                 ),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: EdgeInsets.symmetric(vertical: padding * 0.5),
                   decoration: BoxDecoration(
                     color: cardColor.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
@@ -303,10 +321,11 @@ class _BreathingPatternCard extends StatelessWidget {
                     style: TextStyle(
                       color: cardColor,
                       fontWeight: FontWeight.w600,
-                      fontSize: 12,
+                      fontSize: baseFont,
                     ),
                   ),
                 ),
+                SizedBox(height: padding * 0.5),
               ],
             ),
           ),

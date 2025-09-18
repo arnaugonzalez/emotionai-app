@@ -19,8 +19,9 @@ class RatingModal extends StatefulWidget {
 }
 
 class _RatingModalState extends State<RatingModal> {
-  double _rating = 5.0;
+  double _rating = 3.0; // backend expects 1..5
   final TextEditingController _commentController = TextEditingController();
+  String? _errorMsg;
 
   @override
   void dispose() {
@@ -37,10 +38,10 @@ class _RatingModalState extends State<RatingModal> {
         children: [
           Slider(
             value: _rating,
-            min: 0,
-            max: 10,
-            divisions: 10,
-            label: _rating.toStringAsFixed(1),
+            min: 1,
+            max: 5,
+            divisions: 4,
+            label: _rating.toStringAsFixed(0),
             onChanged: (value) {
               setState(() {
                 _rating = value;
@@ -55,6 +56,10 @@ class _RatingModalState extends State<RatingModal> {
             ),
             maxLines: 3,
           ),
+          if (_errorMsg != null) ...[
+            const SizedBox(height: 12),
+            Text(_errorMsg!, style: const TextStyle(color: Colors.red)),
+          ],
         ],
       ),
       actions: [
@@ -73,7 +78,11 @@ class _RatingModalState extends State<RatingModal> {
               comment: _commentController.text.trim(),
               createdAt: DateTime.now(),
             );
-            widget.onSave(session);
+            try {
+              widget.onSave(session);
+            } catch (e) {
+              setState(() => _errorMsg = 'Failed to save: $e');
+            }
           },
           child: const Text("Save Meditation"),
         ),

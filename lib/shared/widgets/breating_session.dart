@@ -139,44 +139,78 @@ class _BreathingSessionScreenState extends ConsumerState<BreathingSessionScreen>
 
   @override
   Widget build(BuildContext context) {
+    final secondsLeft =
+        (_controller?.duration?.inSeconds ?? 0) -
+        ((_controller?.value ?? 0.0) * (_controller?.duration?.inSeconds ?? 0))
+            .round();
+    final isInhale = _phase == "Inhale";
     return Scaffold(
       appBar: AppBar(title: const Text("Breathing Session")),
-      body: Center(
-        child:
-            _sessionCompleted
-                ? const Text("Session Completed!")
-                : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _phase,
-                      style: Theme.of(context).textTheme.headlineLarge,
-                    ),
-                    const SizedBox(height: 40),
-                    CustomPaint(
-                      size: const Size(200, 200),
-                      painter: CircleBreathPainter(
-                        value: _controller?.value ?? 0.0,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Cycle $_currentCycle of ${widget.pattern.cycles}',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () {
-                        _timer?.cancel();
-                        setState(() {
-                          _sessionCompleted = true;
-                        });
-                        _showRatingModal();
-                      },
-                      child: const Text("Stop Session"),
-                    ),
-                  ],
-                ),
+      body: SafeArea(
+        child: Center(
+          child:
+              _sessionCompleted
+                  ? const Text("Session Completed!")
+                  : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final size = constraints.biggest.shortestSide * 0.6;
+                      return SingleChildScrollView(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _phase,
+                              style: Theme.of(
+                                context,
+                              ).textTheme.headlineLarge?.copyWith(
+                                fontWeight:
+                                    isInhale
+                                        ? FontWeight.bold
+                                        : FontWeight.w400,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                CustomPaint(
+                                  size: Size(size, size),
+                                  painter: CircleBreathPainter(
+                                    value: _controller?.value ?? 0.0,
+                                    inhale: isInhale,
+                                  ),
+                                ),
+                                Text(
+                                  '$secondsLeft',
+                                  style:
+                                      Theme.of(
+                                        context,
+                                      ).textTheme.headlineMedium,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Cycle $_currentCycle of ${widget.pattern.cycles}',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () {
+                                _timer?.cancel();
+                                setState(() {
+                                  _sessionCompleted = true;
+                                });
+                                _showRatingModal();
+                              },
+                              child: const Text("Stop Session"),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+        ),
       ),
     );
   }
@@ -184,14 +218,20 @@ class _BreathingSessionScreenState extends ConsumerState<BreathingSessionScreen>
 
 class CircleBreathPainter extends CustomPainter {
   final double value;
+  final bool inhale;
 
-  CircleBreathPainter({required this.value});
+  CircleBreathPainter({required this.value, required this.inhale});
 
   @override
   void paint(Canvas canvas, Size size) {
+    final baseColor = Colors.blueAccent;
+    final alpha =
+        (inhale ? (155 + (100 * value)) : (255 * (1 - value)))
+            .clamp(50, 255)
+            .toInt();
     final paint =
         Paint()
-          ..color = Colors.blueAccent
+          ..color = baseColor.withAlpha(alpha)
           ..style = PaintingStyle.fill
           ..isAntiAlias = true;
 
@@ -204,6 +244,6 @@ class CircleBreathPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(CircleBreathPainter oldDelegate) {
-    return oldDelegate.value != value;
+    return oldDelegate.value != value || oldDelegate.inhale != inhale;
   }
 }
