@@ -6,6 +6,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'package:logger/logger.dart';
 import '../../shared/services/sqlite_helper.dart';
 import '../../data/api_service.dart';
@@ -91,13 +92,41 @@ class SyncConflict {
   static String _serializeData(dynamic data) {
     if (data == null) return '';
     if (data is String) return data;
-    return data.toString(); // Simple serialization for now
+    if (data is EmotionalRecord) return _encodeJson(data.toJson());
+    if (data is BreathingSessionData) return _encodeJson(data.toJson());
+    if (data is BreathingPattern) return _encodeJson(data.toJson());
+    if (data is CustomEmotion) return _encodeJson(data.toJson());
+    if (data is Map) return _encodeJson(data);
+    return data.toString();
+  }
+
+  static String _encodeJson(dynamic data) {
+    try {
+      return const JsonEncoder().convert(data);
+    } catch (_) {
+      return data.toString();
+    }
   }
 
   static dynamic _deserializeData(String itemType, String data) {
-    // This would need proper deserialization based on item type
-    // For now, return the raw string
-    return data;
+    if (data.isEmpty) return data;
+    try {
+      final map = const JsonDecoder().convert(data) as Map<String, dynamic>;
+      switch (itemType) {
+        case 'emotional_record':
+          return EmotionalRecord.fromJson(map);
+        case 'breathing_session':
+          return BreathingSessionData.fromJson(map);
+        case 'breathing_pattern':
+          return BreathingPattern.fromJson(map);
+        case 'custom_emotion':
+          return CustomEmotion.fromJson(map);
+        default:
+          return map;
+      }
+    } catch (_) {
+      return data;
+    }
   }
 }
 

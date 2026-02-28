@@ -88,17 +88,21 @@ class SyncItem {
   static Map<String, dynamic> _serializeData(dynamic data) {
     if (data == null) return {};
 
-    // Handle different data types
     if (data is Map<String, dynamic>) {
       return data;
-    } else if (data.toJson != null) {
-      return data.toJson();
-    } else if (data.toMap != null) {
-      return data.toMap();
-    } else {
-      throw Exception(
-        'Unsupported data type for serialization: ${data.runtimeType}',
-      );
+    }
+
+    // Use explicit type checks instead of unreliable dynamic member access
+    try {
+      return (data as dynamic).toJson() as Map<String, dynamic>;
+    } catch (_) {
+      try {
+        return (data as dynamic).toMap() as Map<String, dynamic>;
+      } catch (_) {
+        throw Exception(
+          'Unsupported data type for serialization: ${data.runtimeType}',
+        );
+      }
     }
   }
 

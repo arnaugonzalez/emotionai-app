@@ -361,15 +361,56 @@ class SyncManager {
 
   /// Handle update operation
   Future<void> _handleUpdate(SyncItem item) async {
-    // Implementation depends on API supporting updates
-    // For now, treat as create
-    await _handleCreate(item);
+    switch (item.type) {
+      case 'emotional_record':
+        final record = item.data as EmotionalRecord;
+        await _apiService.createEmotionalRecord(record);
+        if (record.id != null) {
+          await _sqliteHelper.markEmotionalRecordAsSynced(int.parse(record.id!));
+        }
+        break;
+
+      case 'breathing_session':
+        final session = item.data as BreathingSessionData;
+        await _apiService.createBreathingSession(session);
+        if (session.id != null) {
+          await _sqliteHelper.markBreathingSessionAsSynced(int.parse(session.id!));
+        }
+        break;
+
+      case 'breathing_pattern':
+        final pattern = item.data as BreathingPattern;
+        await _apiService.createBreathingPattern(pattern);
+        if (pattern.id != null) {
+          await _sqliteHelper.markBreathingPatternAsSynced(int.parse(pattern.id!));
+        }
+        break;
+
+      case 'custom_emotion':
+        final emotion = item.data as CustomEmotion;
+        await _apiService.createCustomEmotion(emotion);
+        break;
+
+      default:
+        throw Exception('Unknown item type for update: ${item.type}');
+    }
   }
 
   /// Handle delete operation
   Future<void> _handleDelete(SyncItem item) async {
-    // Implementation depends on API supporting deletes
-    logger.w('Delete operations not yet implemented for ${item.type}');
+    switch (item.type) {
+      case 'emotional_record':
+      case 'breathing_session':
+      case 'breathing_pattern':
+      case 'custom_emotion':
+        logger.w(
+          'DELETE sync for ${item.type}/${item.id}: '
+          'backend DELETE endpoint not yet available — skipping.',
+        );
+        break;
+      default:
+        throw Exception('Unknown item type for delete: ${item.type}');
+    }
   }
 
   /// Upload pending local changes to remote

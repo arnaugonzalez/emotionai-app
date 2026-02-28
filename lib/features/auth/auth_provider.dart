@@ -3,9 +3,9 @@ import 'package:emotion_ai/data/api_service.dart';
 import 'package:emotion_ai/data/services/profile_service.dart';
 import 'package:emotion_ai/data/auth_api.dart';
 import 'package:emotion_ai/features/calendar/events/calendar_events_provider.dart';
+import 'package:emotion_ai/shared/providers/app_providers.dart' show apiServiceProvider;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
 final authApiProvider = Provider<AuthApi>((ref) => AuthApi());
 final realtimeCalendarProvider = ChangeNotifierProvider<CalendarEventsProvider>(
   (ref) => CalendarEventsProvider(),
