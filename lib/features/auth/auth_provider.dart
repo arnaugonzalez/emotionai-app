@@ -4,7 +4,6 @@ import 'package:emotion_ai/data/services/profile_service.dart';
 import 'package:emotion_ai/data/auth_api.dart';
 import 'package:emotion_ai/features/calendar/events/calendar_events_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
 final authApiProvider = Provider<AuthApi>((ref) => AuthApi());
@@ -16,11 +15,8 @@ final authProvider = StateNotifierProvider<AuthNotifier, bool>((ref) {
   return AuthNotifier(ref, ref.watch(apiServiceProvider));
 });
 
-// Provider to check if user has admin access
-final adminAccessProvider = FutureProvider<bool>((ref) async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getBool('admin_access') ?? false;
-});
+// Admin access provider — removed hardcoded admin PIN (TD-001).
+// Admin access should be granted via backend role, not client-side PIN.
 
 class AuthNotifier extends StateNotifier<bool> {
   final ApiService _apiService;
@@ -48,7 +44,7 @@ class AuthNotifier extends StateNotifier<bool> {
           // Profile loaded successfully - could store in shared preferences or state
         } catch (e) {
           // Profile not found or error loading - this is normal for new users
-          print('No existing profile found: $e');
+          // Profile not found — normal for new users
         }
 
         // Connect realtime calendar after token available
@@ -71,10 +67,9 @@ class AuthNotifier extends StateNotifier<bool> {
     try {
       _ref.read(realtimeCalendarProvider).disposeRealtime();
     } catch (_) {}
-    // Clear admin access on logout
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('admin_access', false);
-    await prefs.setBool('pin_verified', false);
+    // Clear pin verification on logout
+    const secureStorage = FlutterSecureStorage();
+    await secureStorage.write(key: 'pin_verified', value: 'false');
     state = false;
   }
 
@@ -100,9 +95,5 @@ class AuthNotifier extends StateNotifier<bool> {
     }
   }
 
-  // Check if user has admin access
-  Future<bool> hasAdminAccess() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('admin_access') ?? false;
-  }
+  // Admin access should be determined by backend roles, not client-side storage.
 }

@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:crypto/crypto.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
 class PinCodeScreen extends StatefulWidget {
@@ -12,11 +15,17 @@ class PinCodeScreen extends StatefulWidget {
 
 class _PinCodeScreenState extends State<PinCodeScreen> {
   String _pin = '';
-  String? _storedPin;
+  String? _storedPinHash;
   String? _confirmPin;
   bool _isConfirming = false;
-  static const String adminPin = '981563119939'; // Admin PIN
-  static const int maxPinLength = 12; // Support up to 12 digits
+  static const int maxPinLength = 12;
+
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+
+  /// Hash a PIN with SHA-256 for safe comparison and storage.
+  static String _hashPin(String pin) {
+    return sha256.convert(utf8.encode(pin)).toString();
+  }
 
   @override
   void initState() {
@@ -25,9 +34,9 @@ class _PinCodeScreenState extends State<PinCodeScreen> {
   }
 
   Future<void> _loadPin() async {
-    final prefs = await SharedPreferences.getInstance();
+    final hash = await _secureStorage.read(key: 'user_pin_hash');
     setState(() {
-      _storedPin = prefs.getString('user_pin_code');
+      _storedPinHash = hash;
     });
   }
 
@@ -56,7 +65,6 @@ class _PinCodeScreenState extends State<PinCodeScreen> {
   Future<void> _submit() async {
     if (widget.isSettingUp) {
       if (!_isConfirming) {
-        // Minimum 4 digits for custom PIN
         if (_pin.length < 4) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -71,9 +79,11 @@ class _PinCodeScreenState extends State<PinCodeScreen> {
         });
       } else {
         if (_pin == _confirmPin) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('user_pin_code', _pin);
-          await prefs.setBool('pin_verified', true);
+          await _secureStorage.write(
+            key: 'user_pin_hash',
+            value: _hashPin(_pin),
+          );
+          await _secureStorage.write(key: 'pin_verified', value: 'true');
           if (!mounted) return;
           context.pop(true);
         } else {
@@ -89,40 +99,21 @@ class _PinCodeScreenState extends State<PinCodeScreen> {
         }
       }
     } else {
-      // Check admin PIN, user PIN, or default PIN
-      final isAdminPin = _pin == adminPin;
-      final isUserPin = _pin == _storedPin;
-      final isDefaultPin =
-          (_storedPin == null && _pin == '1111'); // Default PIN for development
+      // Verify: user must have set a PIN — no default bypass
+      if (_storedPinHash == null) {
+        // No PIN stored — force setup
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No PIN set. Please set up your PIN first.')),
+        );
+        return;
+      }
 
-      if (isAdminPin || isUserPin || isDefaultPin) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('pin_verified', true);
-
-        // Store admin access flag for special privileges
-        if (isAdminPin) {
-          await prefs.setBool('admin_access', true);
-        } else {
-          await prefs.setBool('admin_access', false);
-        }
-
+      final enteredHash = _hashPin(_pin);
+      if (enteredHash == _storedPinHash) {
+        await _secureStorage.write(key: 'pin_verified', value: 'true');
         if (!mounted) return;
         context.go('/');
-
-        // Show admin access notification
-        if (isAdminPin) {
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('🔐 Admin access granted'),
-                  backgroundColor: Colors.green,
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            }
-          });
-        }
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(
@@ -251,21 +242,6 @@ class _PinCodeScreenState extends State<PinCodeScreen> {
               ),
             ),
           ),
-
-          const SizedBox(height: 20),
-
-          // Hint text
-          if (!widget.isSettingUp)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Text(
-                'Tip: Use 1111 for quick access or contact admin for the 12-digit admin PIN',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-                textAlign: TextAlign.center,
-              ),
-            ),
 
           const SizedBox(height: 20),
         ],
