@@ -3,7 +3,7 @@ import 'package:emotion_ai/features/auth/login_screen.dart';
 import 'package:emotion_ai/features/auth/pin_code_screen.dart';
 import 'package:emotion_ai/features/auth/register_screen.dart';
 import 'package:emotion_ai/features/breathing_menu/breathing_menu.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:emotion_ai/shared/widgets/main_scaffold.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -34,9 +34,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/';
       }
 
-      final prefs = await SharedPreferences.getInstance();
-      final hasPin = prefs.getString('user_pin_code') != null;
-      final hasVerifiedPin = prefs.getBool('pin_verified') ?? false;
+      const secureStorage = FlutterSecureStorage();
+      final hasPin = await secureStorage.read(key: 'user_pin_hash') != null;
+      final hasVerifiedPin = await secureStorage.read(key: 'pin_verified') == 'true';
 
       if (loggedIn && hasPin && !hasVerifiedPin && state.uri.path != '/pin') {
         return '/pin';

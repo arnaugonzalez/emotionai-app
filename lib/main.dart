@@ -6,6 +6,7 @@ import 'package:logger/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
 import 'shared/services/secure_env_service.dart';
 import 'shared/providers/app_providers.dart';
@@ -100,9 +101,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
-      SharedPreferences.getInstance().then((prefs) {
-        prefs.setBool('pin_verified', false);
-      });
+      const FlutterSecureStorage().write(key: 'pin_verified', value: 'false');
     }
   }
 

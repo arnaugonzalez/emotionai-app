@@ -56,7 +56,7 @@ class SQLiteHelper {
 
     return await openDatabase(
       path,
-      version: 9, // Increment version for new tables
+      version: 10, // Increment version for missing columns
       onCreate: (db, version) async {
         logger.i('Creating database tables for version $version');
 
@@ -70,7 +70,17 @@ class SQLiteHelper {
             color TEXT,
             customEmotionName TEXT,
             customEmotionColor INTEGER,
-            synced INTEGER DEFAULT 0
+            intensity INTEGER DEFAULT 5,
+            triggers TEXT,
+            notes TEXT,
+            contextData TEXT,
+            tags TEXT,
+            tagConfidence REAL,
+            processedForTags INTEGER DEFAULT 0,
+            recordedAt TEXT,
+            synced INTEGER DEFAULT 0,
+            sync_attempts INTEGER DEFAULT 0,
+            last_sync_attempt TEXT
           )
         ''');
         await db.execute('''
@@ -203,6 +213,30 @@ class SQLiteHelper {
               UNIQUE(userId, date)
             )
           ''');
+        }
+        if (oldVersion < 10) {
+          logger.i(
+            'Upgrading to version 10: Adding missing emotional_records columns',
+          );
+          final cols = [
+            'ALTER TABLE emotional_records ADD COLUMN intensity INTEGER DEFAULT 5',
+            'ALTER TABLE emotional_records ADD COLUMN triggers TEXT',
+            'ALTER TABLE emotional_records ADD COLUMN notes TEXT',
+            'ALTER TABLE emotional_records ADD COLUMN contextData TEXT',
+            'ALTER TABLE emotional_records ADD COLUMN tags TEXT',
+            'ALTER TABLE emotional_records ADD COLUMN tagConfidence REAL',
+            'ALTER TABLE emotional_records ADD COLUMN processedForTags INTEGER DEFAULT 0',
+            'ALTER TABLE emotional_records ADD COLUMN recordedAt TEXT',
+            'ALTER TABLE emotional_records ADD COLUMN sync_attempts INTEGER DEFAULT 0',
+            'ALTER TABLE emotional_records ADD COLUMN last_sync_attempt TEXT',
+          ];
+          for (final sql in cols) {
+            try {
+              await db.execute(sql);
+            } catch (_) {
+              // Column may already exist — safe to ignore
+            }
+          }
         }
       },
     );

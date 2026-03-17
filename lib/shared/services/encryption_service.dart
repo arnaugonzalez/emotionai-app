@@ -23,9 +23,15 @@ class EncryptionService {
     try {
       // Generate a device-specific key and IV
       final deviceId = await _getDeviceSpecificId();
-      final keyBytes = sha256.convert(utf8.encode(deviceId)).bytes;
+      // Derive key and IV independently using HMAC-based extraction
+      final keyBytes = Hmac(sha256, utf8.encode('encryption-key'))
+          .convert(utf8.encode(deviceId))
+          .bytes;
+      final ivBytes = Hmac(sha256, utf8.encode('encryption-iv'))
+          .convert(utf8.encode(deviceId))
+          .bytes;
       _key = encrypt.Key(Uint8List.fromList(keyBytes.sublist(0, 32)));
-      _iv = encrypt.IV(Uint8List.fromList(keyBytes.sublist(0, 16)));
+      _iv = encrypt.IV(Uint8List.fromList(ivBytes.sublist(0, 16)));
     } catch (e) {
       logger.e('Failed to initialize encryption service: $e');
       rethrow;

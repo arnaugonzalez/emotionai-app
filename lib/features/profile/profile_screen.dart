@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:emotion_ai/features/auth/auth_provider.dart';
 import 'package:emotion_ai/features/auth/pin_code_screen.dart';
 import 'package:emotion_ai/core/theme/app_theme.dart';
@@ -99,9 +100,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _loadPinStatus() async {
-    final prefs = await SharedPreferences.getInstance();
+    const secureStorage = FlutterSecureStorage();
+    final pinHash = await secureStorage.read(key: 'user_pin_hash');
     setState(() {
-      _hasPinCode = prefs.getString('user_pin_code') != null;
+      _hasPinCode = pinHash != null;
     });
   }
 

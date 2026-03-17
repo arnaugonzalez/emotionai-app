@@ -3,17 +3,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'auth_provider.dart';
 
-class RegisterScreen extends ConsumerWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final emailController = TextEditingController();
-    final passwordController = TextEditingController();
-    final firstNameController = TextEditingController();
-    final lastNameController = TextEditingController();
-    DateTime? selectedDate;
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
+}
 
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  DateTime? _selectedDate;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Register')),
       body: Padding(
@@ -22,7 +36,7 @@ class RegisterScreen extends ConsumerWidget {
           child: Column(
             children: [
               TextField(
-                controller: firstNameController,
+                controller: _firstNameController,
                 decoration: const InputDecoration(
                   labelText: 'First Name *',
                   border: OutlineInputBorder(),
@@ -30,7 +44,7 @@ class RegisterScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: lastNameController,
+                controller: _lastNameController,
                 decoration: const InputDecoration(
                   labelText: 'Last Name *',
                   border: OutlineInputBorder(),
@@ -38,7 +52,7 @@ class RegisterScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: emailController,
+                controller: _emailController,
                 decoration: const InputDecoration(
                   labelText: 'Email *',
                   border: OutlineInputBorder(),
@@ -47,7 +61,7 @@ class RegisterScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: passwordController,
+                controller: _passwordController,
                 decoration: const InputDecoration(
                   labelText: 'Password *',
                   border: OutlineInputBorder(),
@@ -55,46 +69,42 @@ class RegisterScreen extends ConsumerWidget {
                 obscureText: true,
               ),
               const SizedBox(height: 16),
-              StatefulBuilder(
-                builder: (context, setState) {
-                  return InkWell(
-                    onTap: () async {
-                      final pickedDate = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now().subtract(
-                          const Duration(days: 365 * 25),
-                        ),
-                        firstDate: DateTime(1900),
-                        lastDate: DateTime.now(),
-                      );
-                      if (pickedDate != null) {
-                        setState(() {
-                          selectedDate = pickedDate;
-                        });
-                      }
-                    },
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        selectedDate != null
-                            ? 'Date of Birth: ${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'
-                            : 'Date of Birth (Optional)',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color:
-                              selectedDate != null
-                                  ? Colors.black
-                                  : Colors.grey[600],
-                        ),
-                      ),
+              InkWell(
+                onTap: () async {
+                  final pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now().subtract(
+                      const Duration(days: 365 * 25),
                     ),
+                    firstDate: DateTime(1900),
+                    lastDate: DateTime.now(),
                   );
+                  if (pickedDate != null) {
+                    setState(() {
+                      _selectedDate = pickedDate;
+                    });
+                  }
                 },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    _selectedDate != null
+                        ? 'Date of Birth: ${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'
+                        : 'Date of Birth (Optional)',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color:
+                          _selectedDate != null
+                              ? Colors.black
+                              : Colors.grey[600],
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 20),
               SizedBox(
@@ -102,10 +112,10 @@ class RegisterScreen extends ConsumerWidget {
                 child: ElevatedButton(
                   onPressed: () async {
                     // Validate required fields
-                    if (firstNameController.text.trim().isEmpty ||
-                        lastNameController.text.trim().isEmpty ||
-                        emailController.text.trim().isEmpty ||
-                        passwordController.text.trim().isEmpty) {
+                    if (_firstNameController.text.trim().isEmpty ||
+                        _lastNameController.text.trim().isEmpty ||
+                        _emailController.text.trim().isEmpty ||
+                        _passwordController.text.trim().isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Please fill in all required fields'),
@@ -118,11 +128,11 @@ class RegisterScreen extends ConsumerWidget {
                       final success = await ref
                           .read(authProvider.notifier)
                           .register(
-                            emailController.text.trim(),
-                            passwordController.text.trim(),
-                            firstNameController.text.trim(),
-                            lastNameController.text.trim(),
-                            dateOfBirth: selectedDate,
+                            _emailController.text.trim(),
+                            _passwordController.text.trim(),
+                            _firstNameController.text.trim(),
+                            _lastNameController.text.trim(),
+                            dateOfBirth: _selectedDate,
                           );
 
                       if (success) {

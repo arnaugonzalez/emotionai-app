@@ -28,29 +28,12 @@ class ProfileService {
         options: Options(headers: await _getHeaders()),
       );
 
-      print('DEBUG: Profile API response status: ${response.statusCode}');
-      print('DEBUG: Profile API response body: ${response.data}');
-
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
-        print('DEBUG: Parsed profile data: $data');
-
-        try {
-          final profile = UserProfile.fromJson(data);
-          print('DEBUG: Successfully created UserProfile object');
-          return profile;
-        } catch (parseError) {
-          print('DEBUG: Error parsing profile data: $parseError');
-          print('DEBUG: Data that failed to parse: $data');
-          throw Exception('Failed to parse profile data: $parseError');
-        }
+        return UserProfile.fromJson(data);
       } else if (response.statusCode == 404) {
-        print('DEBUG: Profile not found (404)');
         return null; // Profile not found
       } else {
-        print(
-          'DEBUG: Profile API error: ${response.statusCode} - ${response.data}',
-        );
         throw Exception('Failed to get profile: ${response.statusCode}');
       }
     } on DioException catch (e) {
@@ -58,7 +41,6 @@ class ProfileService {
         'Error getting profile: ${e.response?.data ?? e.message}',
       );
     } catch (e) {
-      print('DEBUG: Exception in getUserProfile: $e');
       throw Exception('Error getting profile: $e');
     }
   }

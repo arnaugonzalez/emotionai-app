@@ -1,3 +1,15 @@
+import 'dart:convert';
+
+Map<String, dynamic>? _tryDecodeJson(String raw) {
+  try {
+    return jsonDecode(raw) as Map<String, dynamic>;
+  } catch (_) {
+    return null;
+  }
+}
+
+String _encodeJson(Map<String, dynamic> data) => jsonEncode(data);
+
 class EmotionalRecord {
   final String? id;
   final String source;
@@ -97,13 +109,22 @@ class EmotionalRecord {
         map['date'] ?? DateTime.now().toIso8601String(),
       ),
       intensity: map['intensity'] ?? 5,
-      triggers: map['triggers']?.split(',') ?? [],
+      triggers:
+          map['triggers'] is String
+              ? (map['triggers'] as String).split(',').where((s) => s.isNotEmpty).toList()
+              : <String>[],
       notes: map['notes'],
       contextData:
-          map['contextData'] != null
-              ? Map<String, dynamic>.from(map['contextData'])
-              : null,
-      tags: map['tags']?.split(',') ?? [],
+          map['contextData'] is String
+              ? (Map<String, dynamic>.from(
+                  _tryDecodeJson(map['contextData'] as String) ?? {}))
+              : (map['contextData'] != null
+                  ? Map<String, dynamic>.from(map['contextData'])
+                  : null),
+      tags:
+          map['tags'] is String
+              ? (map['tags'] as String).split(',').where((s) => s.isNotEmpty).toList()
+              : <String>[],
       tagConfidence: map['tagConfidence']?.toDouble(),
       processedForTags: map['processedForTags'] == 1,
       recordedAt:
@@ -124,7 +145,7 @@ class EmotionalRecord {
       'intensity': intensity,
       'triggers': triggers.join(','),
       'notes': notes,
-      'contextData': contextData,
+      'contextData': contextData != null ? _encodeJson(contextData!) : null,
       'tags': tags.join(','),
       'tagConfidence': tagConfidence,
       'processedForTags': processedForTags ? 1 : 0,
