@@ -128,6 +128,18 @@ class AuthApi {
     return _inMemoryAccess;
   }
 
+  /// Purge all token state from secure storage and the in-memory cache.
+  /// This is the single canonical place to wipe authentication state.
+  /// Always call this on logout — never call FlutterSecureStorage.delete
+  /// for token keys individually outside of this method.
+  Future<void> clearTokens() async {
+    await _storage.delete(key: 'access_token');
+    await _storage.delete(key: 'refresh_token');
+    await _storage.delete(key: 'access_expiry');
+    _inMemoryAccess = null;
+    _accessExpiry = null;
+  }
+
   Future<void> _persistAccess(String token, int expiresIn) async {
     _inMemoryAccess = token;
     final now = DateTime.now();

@@ -1,6 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'models/user.dart';
 import 'models/auth_response.dart';
 import 'models/chat_response.dart';
@@ -18,7 +18,6 @@ import 'exceptions/api_exceptions.dart';
 import 'auth_api.dart';
 
 class ApiService {
-  final _storage = const FlutterSecureStorage();
   final _logger = Logger();
   final AuthApi _authApi;
   late final Dio _dio;
@@ -30,12 +29,6 @@ class ApiService {
   Future<String?> _getToken() async {
     // Use AuthApi to ensure token is fresh and aligns with interceptor storage
     return await _authApi.getValidAccessToken();
-  }
-
-  // Deprecated: tokens are managed via AuthApi
-
-  Future<void> _clearToken() async {
-    await _storage.delete(key: 'auth_token');
   }
 
   Future<Map<String, String>> _getHeaders() async {
@@ -132,7 +125,18 @@ class ApiService {
   }
 
   Future<void> logout() async {
-    await _clearToken();
+    // 1. Wipe all token state from secure storage and the in-memory cache.
+    await _authApi.clearTokens();
+
+    // 2. Notify the server (fire-and-forget — must not block or throw).
+    //    Logout must succeed even when offline.
+    unawaited(
+      _dio
+          .post(ApiBaseHelper.endpoint(ApiConfig.logoutUrl()).toString())
+          // ignore: avoid_types_on_closure_parameters
+          .then<void>((_) {})
+          .catchError((_) {}),
+    );
   }
 
   // Emotional Records
