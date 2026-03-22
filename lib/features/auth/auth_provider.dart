@@ -27,7 +27,7 @@ class AuthNotifier extends StateNotifier<bool> {
   }
 
   Future<void> _checkToken() async {
-    final token = await const FlutterSecureStorage().read(key: 'auth_token');
+    final token = await const FlutterSecureStorage().read(key: 'access_token');
     state = token != null;
   }
 

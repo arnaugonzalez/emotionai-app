@@ -201,6 +201,7 @@ class ApiConfig {
   static const String _authRegister = '$_v1/auth/register';
   static const String _authRefresh = '$_v1/auth/refresh';
   static const String _authMe = '$_v1/auth/me';
+  static const String _authLogout = '$_v1/auth/logout';
 
   // Chat endpoints
   static const String _chatV1 = '$_v1/chat';
@@ -248,6 +249,7 @@ class ApiConfig {
   static String registerUrl() => '$baseUrl$_authRegister';
   static String refreshUrl() => '$baseUrl$_authRefresh';
   static String meUrl() => '$baseUrl$_authMe';
+  static String logoutUrl() => '$baseUrl$_authLogout';
   static String chatUrl() => '$baseUrl$_chatV1';
   static String agentsListUrl() => '$baseUrl$_agentsList';
   static String agentStatusUrl(String agentType) =>
