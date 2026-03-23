@@ -9,7 +9,7 @@
 | `BASE_URL` | any URL | _(empty)_ | Explicit full URL override — **trumps all other settings** |
 | `BACKEND_TYPE` | `local`, `docker`, `deployed` | `local` | How to resolve the backend host |
 | `DEVICE_TYPE` | `auto`, `emulator`, `physical`, `desktop`, `web` | `auto` | Which host to use for `local` backend |
-| `DOCKER_HOST` | IP address | `192.168.77.140` | Host IP when `BACKEND_TYPE=docker` |
+| `DOCKER_HOST` | IP address | `''` (empty) | Host IP when `BACKEND_TYPE=docker` — **required**, assert fires if empty |
 | `ENVIRONMENT` | `development`, `development_emulator`, `development_local`, `staging`, `production` | `development` | Controls feature flags and deployed URL mapping |
 | `WS_BASE_URL` | any URL | _(empty)_ | Explicit WebSocket base URL override |
 | `SHOW_CONFIG_LOGS` | `true`, `false` | `false` | Print config details on startup (debug builds only) |
