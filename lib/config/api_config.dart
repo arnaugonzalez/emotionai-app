@@ -34,7 +34,7 @@ class ApiConfig {
 
   static const String _dockerHost = String.fromEnvironment(
     'DOCKER_HOST',
-    defaultValue: '192.168.77.140', // Update this to your machine's current IP
+    defaultValue: '',
   );
 
   // Optional explicit WS base URL (e.g., wss://emotionai.duckdns.org)
@@ -110,6 +110,15 @@ class ApiConfig {
   static String _getHost() {
     switch (_backendType) {
       case 'docker':
+        assert(
+          _dockerHost.isNotEmpty,
+          '\n\n'
+          'BACKEND_TYPE=docker requires a host address.\n'
+          'Pass your machine\'s LAN IP via:\n'
+          '  --dart-define=DOCKER_HOST=<your-machine-IP>\n'
+          'Example: --dart-define=DOCKER_HOST=192.168.1.100\n'
+          'For Android emulator use BACKEND_TYPE=local instead (host 10.0.2.2 is automatic).\n',
+        );
         return _dockerHost;
       case 'local':
       default:
@@ -183,6 +192,7 @@ class ApiConfig {
   static String get environment => _environment;
   static String get backendType => _backendType;
   static String get deviceType => _deviceType;
+  /// Empty string unless --dart-define=DOCKER_HOST=... was provided at build time.
   static String get dockerHost => _dockerHost;
 
   // Timeout settings
@@ -348,6 +358,14 @@ class ApiConfig {
     // Check if backend type is valid
     if (!['local', 'docker', 'deployed'].contains(_backendType)) {
       issues.add('Invalid backend type: $_backendType');
+      isValid = false;
+    }
+
+    // Require DOCKER_HOST when using docker backend
+    if (_backendType == 'docker' && _dockerHost.isEmpty) {
+      issues.add(
+        'BACKEND_TYPE=docker requires --dart-define=DOCKER_HOST=<machine-IP>',
+      );
       isValid = false;
     }
 
