@@ -263,6 +263,12 @@ class ApiConfig {
   // Data URLs
   static String customEmotionsUrl() => '$baseUrl$_customEmotions/';
 
+  // Single-record DELETE URL builders
+  static String emotionalRecordUrl(String id) => '$baseUrl$_emotionalRecords/$id';
+  static String breathingSessionUrl(String id) => '$baseUrl$_breathingSessions/$id';
+  static String breathingPatternUrl(String id) => '$baseUrl$_breathingPatterns/$id';
+  static String customEmotionUrl(String id) => '$baseUrl$_customEmotions/$id';
+
   // Profile URLs
   static String profileUrl() => '$baseUrl$_profile/';
   static String profileStatusUrl() => '$baseUrl$_profileStatus';
