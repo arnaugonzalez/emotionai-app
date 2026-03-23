@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chat_message.dart';
-import 'package:emotion_ai/features/auth/auth_provider.dart';
 import 'package:emotion_ai/features/usage/providers/user_limitations_provider.dart';
+import 'package:emotion_ai/shared/providers/app_providers.dart' show apiServiceProvider;
 import 'package:logger/logger.dart';
 
 final logger = Logger();
