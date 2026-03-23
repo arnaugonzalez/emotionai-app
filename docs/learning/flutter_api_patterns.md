@@ -1,78 +1,31 @@
-# Flutter API Patterns
+# Flutter API Patterns — EmotionAI Learning Notes
 
-Reference for recurring patterns in the EmotionAI app's API and authentication layer.
+## Offline DELETE Sync
 
----
+**Problem**: Deleting a record while offline requires two things to happen in the correct order:
+1. The delete must reach the API when connectivity is restored.
+2. The download merge step must not resurrect the row before the delete is dispatched.
 
-## JWT Token Lifecycle
+**Solution used in EmotionAI**:
 
-### Storage Keys
+When a user deletes a record, the UI layer calls `softDelete*(id)` on `SQLiteHelper`, which sets `deleted_at = now()` on the row (schema v11+). The row is NOT hard-deleted yet.
 
-`AuthApi` owns exactly three `FlutterSecureStorage` keys. No other code should read or write these keys directly.
+At sync time, `SyncManager._handleDelete` is called with a `SyncItem` of `operation = 'delete'`. It:
+1. Calls the corresponding `ApiService.delete*(id)` → HTTP DELETE → expects 204.
+2. On success, calls `SQLiteHelper.hardDelete*(id)` to remove the local row.
+3. On failure (network error, 404), the `SyncQueue` retry mechanism keeps the item for the next attempt.
 
-| Key | Type | Description |
-|---|---|---|
-| `access_token` | `String` | JWT Bearer token attached to every authenticated request |
-| `refresh_token` | `String` | Long-lived token used by `AuthApi.refresh()` to obtain new access tokens |
-| `access_expiry` | `String` (ISO-8601) | Expiry timestamp set by `_persistAccess()`; fallback when `JwtDecoder` cannot parse the token |
+The download merge methods (`getEmotionalRecords`, `getAllEmotionalRecords`, etc.) all include `WHERE deleted_at IS NULL` so soft-deleted rows are invisible to the merge step and cannot be re-inserted from a remote GET response.
 
-> **NOTE:** The key `auth_token` does **not** exist in the current codebase. It was a legacy artefact that caused cold-start forced re-logins. It was removed in phase A1. Do not introduce it.
+**Why not hard-delete immediately?**
 
----
+Hard-deleting before the API call would leave the record on the server. On the next sync cycle, `_downloadRemoteChanges` would fetch it back from the API and re-insert it — exactly the bug this fixes.
 
-### Write Paths
+**Key files**:
+- `lib/shared/services/sqlite_helper.dart` — `softDelete*`, `hardDelete*`, schema v11 migration
+- `lib/data/api_service.dart` — `deleteEmotionalRecord`, `deleteBreathingSession`, `deleteBreathingPattern`, `deleteCustomEmotion`
+- `lib/config/api_config.dart` — `emotionalRecordUrl(id)`, `breathingSessionUrl(id)`, etc.
+- `lib/core/sync/sync_manager.dart` — `_handleDelete`
+- API routers: `records.py`, `breathing.py`, `data.py` — `DELETE /{id}` endpoints
 
-Tokens are written in exactly one place:
-
-```
-AuthApi._storeTokensFromAuthResponse()
-  ├── _persistAccess(token, expiresIn)   → writes 'access_token' + 'access_expiry'
-  └── _persistRefresh(token)             → writes 'refresh_token'
-```
-
-Both `AuthApi.login()` and `AuthApi.register()` call `_storeTokensFromAuthResponse()`.
-
-`_persistAccess()` also refreshes the in-memory cache fields `_inMemoryAccess` and `_accessExpiry`.
-
----
-
-### Read Paths
-
-| Reader | Key read | Why |
-|---|---|---|
-| `AuthApi.getValidAccessToken()` | `access_token` | Warms the in-memory cache on cold start |
-| `_AuthInterceptor.onRequest` | `access_token` (fallback) | Attaches `Authorization: Bearer` header per request |
-| `AuthNotifier._checkToken()` | `access_token` | Determines initial auth state at app startup |
-
----
-
-### Clear Path
-
-```dart
-Future<void> clearTokens() async { ... }   // AuthApi
-```
-
-`clearTokens()` is the **single** place to wipe all token state. It:
-1. Deletes `access_token`, `refresh_token`, and `access_expiry` from `FlutterSecureStorage`
-2. Nulls the in-memory cache fields `_inMemoryAccess` and `_accessExpiry`
-
-**Rule:** Always call `_authApi.clearTokens()` on logout. Never call `FlutterSecureStorage.delete` for token keys individually outside of `clearTokens()`.
-
----
-
-### Server Logout
-
-`ApiService.logout()` is the public logout entry point. It:
-
-1. Awaits `_authApi.clearTokens()` — tokens are wiped before the server call
-2. Fire-and-forgets `POST /v1/api/auth/logout` via `unawaited(...then<void>(...).catchError(...))`
-
-The server call must remain fire-and-forget (unawaited + catchError) so that logout completes successfully even when the device is offline or the server is unreachable. Never await the server logout call.
-
----
-
-### In-Memory Cache
-
-`AuthApi` maintains `_inMemoryAccess` and `_accessExpiry` to avoid repeated secure storage reads per request (storage reads have non-trivial latency on device).
-
-`clearTokens()` **must** null both fields. If they are not nulled, `_AuthInterceptor` will re-attach the old (now-invalid) token to the next request after logout.
+**API contract**: DELETE endpoints return 204 No Content on success, 404 if the record does not exist or belongs to another user. The app treats 404 as a success-like condition (record already gone on server) — add that handling if retry storms appear in production.

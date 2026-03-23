@@ -56,7 +56,7 @@ class SQLiteHelper {
 
     return await openDatabase(
       path,
-      version: 10, // Increment version for missing columns
+      version: 11, // v11: deleted_at for offline delete sync
       onCreate: (db, version) async {
         logger.i('Creating database tables for version $version');
 
@@ -80,7 +80,8 @@ class SQLiteHelper {
             recordedAt TEXT,
             synced INTEGER DEFAULT 0,
             sync_attempts INTEGER DEFAULT 0,
-            last_sync_attempt TEXT
+            last_sync_attempt TEXT,
+            deleted_at TEXT
           )
         ''');
         await db.execute('''
@@ -90,7 +91,8 @@ class SQLiteHelper {
             pattern TEXT,
             rating REAL,
             comment TEXT,
-            synced INTEGER DEFAULT 0
+            synced INTEGER DEFAULT 0,
+            deleted_at TEXT
           )
         ''');
         await db.execute('''
@@ -102,14 +104,16 @@ class SQLiteHelper {
             exhaleSeconds INTEGER,
             cycles INTEGER,
             restSeconds INTEGER,
-            synced INTEGER DEFAULT 0
+            synced INTEGER DEFAULT 0,
+            deleted_at TEXT
           )
         ''');
         await db.execute('''
           CREATE TABLE custom_emotions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
-            color INTEGER
+            color INTEGER,
+            deleted_at TEXT
           )
         ''');
         await db.execute('''
@@ -238,6 +242,22 @@ class SQLiteHelper {
             }
           }
         }
+        if (oldVersion < 11) {
+          logger.i('Upgrading to version 11: Adding deleted_at for offline delete sync');
+          const tables = [
+            'emotional_records',
+            'breathing_sessions',
+            'breathing_patterns',
+            'custom_emotions',
+          ];
+          for (final tbl in tables) {
+            try {
+              await db.execute('ALTER TABLE $tbl ADD COLUMN deleted_at TEXT');
+            } catch (_) {
+              // Column already exists on a fresh install — safe to ignore
+            }
+          }
+        }
       },
     );
   }
@@ -310,7 +330,10 @@ class SQLiteHelper {
 
   Future<List<EmotionalRecord>> getEmotionalRecords() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('emotional_records');
+    final List<Map<String, dynamic>> maps = await db.query(
+      'emotional_records',
+      where: 'deleted_at IS NULL',
+    );
     return compute(_processEmotionalRecordsInIsolate, maps);
   }
 
@@ -323,7 +346,7 @@ class SQLiteHelper {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'emotional_records',
-      where: 'synced = ?',
+      where: 'synced = ? AND deleted_at IS NULL',
       whereArgs: [0],
     );
     return compute(_processEmotionalRecordsInIsolate, maps);
@@ -438,6 +461,7 @@ class SQLiteHelper {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'breathing_sessions',
+      where: 'deleted_at IS NULL',
     );
     return compute(_processBreathingSessionsInIsolate, maps);
   }
@@ -451,7 +475,7 @@ class SQLiteHelper {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'breathing_sessions',
-      where: 'synced = ?',
+      where: 'synced = ? AND deleted_at IS NULL',
       whereArgs: [0],
     );
     return compute(_processBreathingSessionsInIsolate, maps);
@@ -473,6 +497,7 @@ class SQLiteHelper {
     try {
       final List<Map<String, dynamic>> maps = await db.query(
         'breathing_patterns',
+        where: 'deleted_at IS NULL',
       );
       return compute(_processBreathingPatternsInIsolate, maps);
     } catch (e) {
@@ -530,7 +555,7 @@ class SQLiteHelper {
     final db = await database;
     return await db.query(
       'breathing_patterns',
-      where: 'synced = ?',
+      where: 'synced = ? AND deleted_at IS NULL',
       whereArgs: [0],
     );
   }
@@ -539,7 +564,10 @@ class SQLiteHelper {
 
   Future<List<EmotionalRecord>> getAllEmotionalRecords() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('emotional_records');
+    final List<Map<String, dynamic>> maps = await db.query(
+      'emotional_records',
+      where: 'deleted_at IS NULL',
+    );
     return compute(_processEmotionalRecordsInIsolate, maps);
   }
 
@@ -548,6 +576,7 @@ class SQLiteHelper {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'breathing_sessions',
+      where: 'deleted_at IS NULL',
     );
     return compute(_processBreathingSessionsInIsolate, maps);
   }
@@ -558,6 +587,7 @@ class SQLiteHelper {
     try {
       final List<Map<String, dynamic>> maps = await db.query(
         'breathing_patterns',
+        where: 'deleted_at IS NULL',
       );
       return compute(_processBreathingPatternsInIsolate, maps);
     } catch (e) {
@@ -574,13 +604,19 @@ class SQLiteHelper {
 
   Future<List<CustomEmotion>> getCustomEmotions() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('custom_emotions');
+    final List<Map<String, dynamic>> maps = await db.query(
+      'custom_emotions',
+      where: 'deleted_at IS NULL',
+    );
     return compute(_processCustomEmotionsInIsolate, maps);
   }
 
   Future<List<CustomEmotion>> getAllCustomEmotions() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('custom_emotions');
+    final List<Map<String, dynamic>> maps = await db.query(
+      'custom_emotions',
+      where: 'deleted_at IS NULL',
+    );
     return compute(_processCustomEmotionsInIsolate, maps);
   }
 
@@ -597,6 +633,68 @@ class SQLiteHelper {
   Future<int> deleteCustomEmotion(int id) async {
     final db = await database;
     return await db.delete('custom_emotions', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Soft-delete: marks row as pending remote deletion.
+  /// SyncManager will hard-delete after API confirms 204.
+  Future<void> softDeleteEmotionalRecord(int id) async {
+    final db = await database;
+    await db.update(
+      'emotional_records',
+      {'deleted_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> hardDeleteEmotionalRecord(int id) async {
+    final db = await database;
+    await db.delete('emotional_records', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> softDeleteBreathingSession(int id) async {
+    final db = await database;
+    await db.update(
+      'breathing_sessions',
+      {'deleted_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> hardDeleteBreathingSession(int id) async {
+    final db = await database;
+    await db.delete('breathing_sessions', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> softDeleteBreathingPattern(int id) async {
+    final db = await database;
+    await db.update(
+      'breathing_patterns',
+      {'deleted_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> hardDeleteBreathingPattern(int id) async {
+    final db = await database;
+    await db.delete('breathing_patterns', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> softDeleteCustomEmotion(int id) async {
+    final db = await database;
+    await db.update(
+      'custom_emotions',
+      {'deleted_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> hardDeleteCustomEmotion(int id) async {
+    final db = await database;
+    await db.delete('custom_emotions', where: 'id = ?', whereArgs: [id]);
   }
 
   // Sync conflict tracking table creation

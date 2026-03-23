@@ -341,6 +341,78 @@ class ApiService {
     }
   }
 
+  // DELETE — Emotional Record
+  Future<void> deleteEmotionalRecord(String id) async {
+    try {
+      await _dio.delete(
+        ApiConfig.emotionalRecordUrl(id),
+        options: Options(headers: await _getHeaders()),
+      );
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
+    } catch (e) {
+      _logger.e('Error deleting emotional record $id: $e');
+      throw ApiExceptionFactory.fromException(e);
+    }
+  }
+
+  // DELETE — Breathing Session
+  Future<void> deleteBreathingSession(String id) async {
+    try {
+      await _dio.delete(
+        ApiConfig.breathingSessionUrl(id),
+        options: Options(headers: await _getHeaders()),
+      );
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
+    } catch (e) {
+      _logger.e('Error deleting breathing session $id: $e');
+      throw ApiExceptionFactory.fromException(e);
+    }
+  }
+
+  // DELETE — Breathing Pattern
+  Future<void> deleteBreathingPattern(String id) async {
+    try {
+      await _dio.delete(
+        ApiConfig.breathingPatternUrl(id),
+        options: Options(headers: await _getHeaders()),
+      );
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
+    } catch (e) {
+      _logger.e('Error deleting breathing pattern $id: $e');
+      throw ApiExceptionFactory.fromException(e);
+    }
+  }
+
+  // DELETE — Custom Emotion
+  Future<void> deleteCustomEmotion(String id) async {
+    try {
+      await _dio.delete(
+        ApiConfig.customEmotionUrl(id),
+        options: Options(headers: await _getHeaders()),
+      );
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
+    } catch (e) {
+      _logger.e('Error deleting custom emotion $id: $e');
+      throw ApiExceptionFactory.fromException(e);
+    }
+  }
+
   // User Limitations (from backend)
   Future<UserLimitations> getUserLimitations() async {
     try {

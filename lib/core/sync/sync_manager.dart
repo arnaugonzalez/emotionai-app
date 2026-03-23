@@ -359,6 +359,10 @@ class SyncManager {
     }
   }
 
+  // TODO(XC-001-followup): _handleUpdate currently calls createX POST endpoints instead of
+  // the correct PUT/PATCH endpoints. This causes duplicate records on every offline edit
+  // of a synced record. Fix requires PUT endpoints on the API first (not yet implemented).
+  // Tracked as the UPDATE half of XC-001. Do not remove this comment until PUT endpoints exist.
   /// Handle update operation
   Future<void> _handleUpdate(SyncItem item) async {
     switch (item.type) {
@@ -396,21 +400,36 @@ class SyncManager {
     }
   }
 
-  /// Handle delete operation
+  /// Handle delete operation — calls backend DELETE endpoint, then hard-deletes local row.
   Future<void> _handleDelete(SyncItem item) async {
+    final id = item.id;
+
     switch (item.type) {
       case 'emotional_record':
-      case 'breathing_session':
-      case 'breathing_pattern':
-      case 'custom_emotion':
-        logger.w(
-          'DELETE sync for ${item.type}/${item.id}: '
-          'backend DELETE endpoint not yet available — skipping.',
-        );
+        await _apiService.deleteEmotionalRecord(id);
+        await _sqliteHelper.hardDeleteEmotionalRecord(int.parse(id));
         break;
+
+      case 'breathing_session':
+        await _apiService.deleteBreathingSession(id);
+        await _sqliteHelper.hardDeleteBreathingSession(int.parse(id));
+        break;
+
+      case 'breathing_pattern':
+        await _apiService.deleteBreathingPattern(id);
+        await _sqliteHelper.hardDeleteBreathingPattern(int.parse(id));
+        break;
+
+      case 'custom_emotion':
+        await _apiService.deleteCustomEmotion(id);
+        await _sqliteHelper.hardDeleteCustomEmotion(int.parse(id));
+        break;
+
       default:
         throw Exception('Unknown item type for delete: ${item.type}');
     }
+
+    logger.i('DELETE sync complete: ${item.type}/$id');
   }
 
   /// Upload pending local changes to remote
