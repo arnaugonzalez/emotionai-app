@@ -180,4 +180,62 @@ Hard-deleting before the API call would leave the record on the server. On the n
 
 ---
 
-*File maintained by the EmotionAI project. Last updated: phase A3-env-config.*
+---
+
+## Crisis Detection Flow
+
+### Overview
+
+The backend AI agent (LangChain therapy agent) may set `crisis_detected = True` on
+the domain-level `TherapyResponse`. This must reach the Flutter UI as a persistent
+crisis banner.
+
+### Data flow (end-to-end)
+
+```
+LangChain agent
+  → TherapyResponse.crisis_detected = True
+  → ChatApiResponse.crisis_detected = True   (chat.py, Pydantic serialises to JSON)
+  → HTTP response JSON: { "crisis_detected": true, "crisis_resources": {...} | null }
+  → ChatResponse.fromJson: crisisDetected = json['crisis_detected'] ?? false
+  → TherapyChatNotifier.sendMessage: state.copyWith(crisisDetected: true)
+  → TherapyChatScreen.build: chatState.crisisDetected → _buildCrisisBanner()
+```
+
+### Key files
+
+| Layer | File | Field |
+|---|---|---|
+| API model | `emotionai-api/src/presentation/api/routers/chat.py` | `ChatApiResponse.crisis_detected` |
+| Dart model | `emotionai-app/lib/data/models/chat_response.dart` | `ChatResponse.crisisDetected` |
+| Provider | `emotionai-app/lib/features/therapy_chat/providers/therapy_chat_provider.dart` | `ChatState.crisisDetected` |
+| Screen | `emotionai-app/lib/features/therapy_chat/screens/therapy_chat_screen.dart` | `_buildCrisisBanner()` |
+
+### Lessons learned
+
+**L1: Pydantic V2 + DateTime**
+`ChatApiResponse.timestamp` uses `@field_serializer` to return `v.isoformat()`. Dart's
+`DateTime.parse()` handles ISO 8601 strings including timezone offset suffixes (`+00:00`,
+`Z`). No custom parser is needed on the Flutter side for datetime fields serialised this
+way.
+
+**L2: Don't gate safety on optional fields**
+The original provider code only triggered crisis UX when BOTH `crisisDetected` AND
+`crisisResources` were non-null. Because `crisis_resources` was never added to the API
+response object, the flag was always swallowed. Safety-critical state changes must fire
+on the primary boolean alone, not on correlated optional data.
+
+**L3: State vs chat bubbles for crisis**
+Injecting crisis content as a chat bubble (previous approach) is fragile — the user
+can scroll past it. A persistent banner at the top of the screen (tied to `ChatState`)
+is the correct pattern for safety-critical UX. The user can dismiss it explicitly via
+`dismissCrisis()`.
+
+**L4: Both handler branches must be updated**
+The chat router has two response-construction paths: one for `dict` responses (fallback)
+and one for `TherapyResponse` objects. Adding a field to `ChatApiResponse` alone is not
+sufficient — both branches must be updated to pass the new field's value.
+
+---
+
+*File maintained by the EmotionAI project. Last updated: phase 04-crisis-detection.*
