@@ -101,6 +101,49 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
     );
   }
 
+  Widget _buildCrisisBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      color: Colors.red.shade700,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Crisis Support Available',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'If you are in immediate danger, please contact emergency services. '
+                  'You are not alone.',
+                  style: TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white, size: 18),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () =>
+                ref.read(therapyChatProvider.notifier).dismissCrisis(),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showClearHistoryDialog() {
     showDialog(
       context: context,
@@ -226,6 +269,9 @@ class _TherapyChatScreenState extends ConsumerState<TherapyChatScreen> {
       ),
       body: Column(
         children: [
+          // Crisis banner — shown above everything else when crisis detected
+          if (chatState.crisisDetected) _buildCrisisBanner(),
+
           // Backend limitations warning
           if (!canMakeRequest && limitations?.limitMessage != null)
             Container(

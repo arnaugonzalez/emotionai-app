@@ -11,12 +11,14 @@ class ChatState {
   final bool isLoading;
   final String? error;
   final String selectedAgent;
+  final bool crisisDetected;
 
   ChatState({
     this.messages = const [],
     this.isLoading = false,
     this.error,
     this.selectedAgent = 'therapy',
+    this.crisisDetected = false,
   });
 
   ChatState copyWith({
@@ -24,12 +26,14 @@ class ChatState {
     bool? isLoading,
     String? error,
     String? selectedAgent,
+    bool? crisisDetected,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
       isLoading: isLoading ?? this.isLoading,
       error: error,
       selectedAgent: selectedAgent ?? this.selectedAgent,
+      crisisDetected: crisisDetected ?? this.crisisDetected,
     );
   }
 }
@@ -86,15 +90,21 @@ class TherapyChatNotifier extends StateNotifier<ChatState> {
         agentType: state.selectedAgent,
       );
 
-      // Handle crisis detection if present
-      if (response.crisisDetected && response.crisisResources != null) {
-        final crisisMessage = ChatMessage(
-          text:
-              '⚠️ CRISIS SUPPORT AVAILABLE:\n${response.crisisResources!.message}\nHotline: ${response.crisisResources!.hotline}',
-          type: MessageType.therapist,
-        );
-
-        state = state.copyWith(messages: [...state.messages, crisisMessage]);
+      // Set crisis state regardless of whether crisisResources is populated.
+      // The screen will display the banner using chatState.crisisDetected.
+      if (response.crisisDetected) {
+        state = state.copyWith(crisisDetected: true);
+        // Only inject a chat bubble if crisis resources text is available.
+        if (response.crisisResources?.message != null ||
+            response.crisisResources?.hotline != null) {
+          final hotline = response.crisisResources?.hotline ?? 'emergency services';
+          final msg = response.crisisResources?.message ?? 'Please reach out for help.';
+          final crisisMessage = ChatMessage(
+            text: 'Support available: $msg  Hotline: $hotline',
+            type: MessageType.therapist,
+          );
+          state = state.copyWith(messages: [...state.messages, crisisMessage]);
+        }
       }
 
       // Add therapist response to UI state
@@ -147,7 +157,7 @@ class TherapyChatNotifier extends StateNotifier<ChatState> {
       ChatMessage(text: greetingText, type: MessageType.therapist),
     ];
 
-    state = state.copyWith(selectedAgent: agentType, messages: initialMessages);
+    state = state.copyWith(selectedAgent: agentType, messages: initialMessages, crisisDetected: false);
   }
 
   Future<void> clearConversationHistory() async {
@@ -166,7 +176,7 @@ class TherapyChatNotifier extends StateNotifier<ChatState> {
         ChatMessage(text: greetingText, type: MessageType.therapist),
       ];
 
-      state = state.copyWith(messages: initialMessages);
+      state = state.copyWith(messages: initialMessages, crisisDetected: false);
     } catch (e) {
       logger.e('Error clearing conversation history: $e');
       // Fallback to just clearing UI messages
@@ -179,8 +189,12 @@ class TherapyChatNotifier extends StateNotifier<ChatState> {
         ChatMessage(text: greetingText, type: MessageType.therapist),
       ];
 
-      state = state.copyWith(messages: initialMessages);
+      state = state.copyWith(messages: initialMessages, crisisDetected: false);
     }
+  }
+
+  void dismissCrisis() {
+    state = state.copyWith(crisisDetected: false);
   }
 }
 
