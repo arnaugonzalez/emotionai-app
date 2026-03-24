@@ -87,6 +87,7 @@ class CalendarEventsProvider extends ChangeNotifier {
   String? errorMessage;
   WebSocketChannel? _ws;
   bool _wsConnected = false;
+  bool get isReconnecting => !_wsConnected && !_disposed;
   AuthApi? _auth;
 
   // Reconnect state
