@@ -2,10 +2,12 @@ import 'dart:convert';
 import 'dart:collection';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+import '../../data/api_service.dart';
 
 class MobileLogger {
+  static MobileLogger? _instance;
+  static MobileLogger get instance => _instance ??= MobileLogger(enabled: true);
+
   final bool enabled;
   final String level; // info|debug
   final int _capacity;
@@ -15,8 +17,8 @@ class MobileLogger {
   MobileLogger({this.enabled = false, this.level = 'info', int capacity = 2000})
     : _capacity = capacity,
       _buffer = ListQueue(capacity) {
-    Connectivity().onConnectivityChanged.listen((result) {
-      _online = result != ConnectivityResult.none;
+    Connectivity().onConnectivityChanged.listen((results) {
+      _online = !results.every((r) => r == ConnectivityResult.none);
     });
   }
 
@@ -57,6 +59,26 @@ class MobileLogger {
   }
 
   List<String> dump() => _buffer.toList(growable: false);
+
+  Future<void> flush(ApiService apiService) async {
+    if (!enabled) return;
+    if (_buffer.isEmpty) return;
+
+    // Snapshot the buffer; keep originals in place until confirmed sent
+    final snapshot = _buffer.toList(growable: false);
+    final decoded = snapshot
+        .map((line) => jsonDecode(line) as Map<String, dynamic>)
+        .toList();
+    try {
+      await apiService.postMobileLogs(decoded);
+      // Only clear after confirmed delivery
+      _buffer.clear();
+    } catch (e) {
+      // Do not clear — logs are retained for next flush attempt
+      // ignore: avoid_print
+      print('[MobileLogger] flush failed, retaining buffer: $e');
+    }
+  }
 
   static String userHash(String? email) {
     if (email == null || email.isEmpty) return '';
