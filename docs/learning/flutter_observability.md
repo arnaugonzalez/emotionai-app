@@ -180,3 +180,68 @@ static String mobileLogsUrl() => '$baseUrl$_mobileLogs';
 
 This follows the same pattern as all other endpoint URL builders in `api_config.dart`
 and respects the environment-based URL resolution (local, docker, deployed).
+
+---
+
+## WebSocket Reconnect Patterns
+
+### Problem
+`web_socket_channel` streams complete (call `onDone`) on any disconnect — network drop,
+server restart, app backgrounding. There is no built-in reconnect. Without a handler the
+stream dies silently and listeners stop receiving messages.
+
+### Pattern: Exponential Backoff + Connectivity Trigger
+
+```dart
+// 1. Backoff table (cap at 30 s)
+static const List<Duration> _backoffTable = [
+  Duration(seconds: 1), Duration(seconds: 2), Duration(seconds: 4),
+  Duration(seconds: 8), Duration(seconds: 16), Duration(seconds: 30),
+];
+
+// 2. Both onError and onDone call _scheduleReconnect()
+_ws!.stream.listen(
+  (data) { ... },
+  onError: (e) { _wsConnected = false; _scheduleReconnect(); },
+  onDone: ()  { _wsConnected = false; _scheduleReconnect(); },
+  cancelOnError: false,   // must be false — default true kills the sub on error
+);
+
+// 3. Schedule next attempt
+void _scheduleReconnect() {
+  if (_disposed) return;
+  final delay = _backoffTable[_attemptCount.clamp(0, _backoffTable.length - 1)];
+  _attemptCount++;
+  _reconnectTimer = Timer(delay, _reconnect);
+}
+
+// 4. Immediate reconnect when network comes back
+SyncManager().stateStream.listen((state) {
+  if (state.isOnline && !_wsConnected && !_disposed) {
+    _reconnectTimer?.cancel();
+    _attemptCount = 0;
+    _reconnect();
+  }
+});
+
+// 5. Clean shutdown — MUST set _disposed = true before cancelling
+void disposeRealtime() {
+  _disposed = true;           // guard: prevents _scheduleReconnect from re-arming
+  _reconnectTimer?.cancel();  // cancel any pending attempt
+  _connectivitySub?.cancel();
+  _ws?.sink.close(ws_status.normalClosure);
+}
+```
+
+### Key Rules
+- `cancelOnError: false` — without this, a single error kills the subscription permanently.
+- `_disposed` guard — always check before scheduling. Without it, logout triggers a
+  reconnect loop because `onDone` fires when you explicitly close the socket.
+- Reset `_attemptCount = 0` on successful connect and on connectivity-restore trigger.
+- SyncManager polls `/health` every 15 s and emits `ConnectivityStatus.online` transitions.
+  Subscribing to `stateStream` gives sub-15 s recovery on network restore at zero cost.
+- Token refresh: call `auth.getValidAccessToken()` inside `_doConnect()` (not once at
+  startup) so a fresh token is always used after a long disconnect.
+
+### Where This Is Used
+`lib/features/calendar/events/calendar_events_provider.dart` — `CalendarEventsProvider`
