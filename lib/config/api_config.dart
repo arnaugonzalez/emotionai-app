@@ -238,6 +238,9 @@ class ApiConfig {
   // Usage endpoints
   static const String _userLimitations = '$_v1/user/limitations';
 
+  // Mobile logging endpoint
+  static const String _mobileLogs = '$_v1/mobile-logs';
+
   // Test endpoints
   static const String _testConnection = '/test/phone';
 
@@ -289,6 +292,9 @@ class ApiConfig {
 
   // Usage URLs
   static String userLimitationsUrl() => '$baseUrl$_userLimitations';
+
+  // Mobile logs URL
+  static String mobileLogsUrl() => '$baseUrl$_mobileLogs';
 
   static String testConnectionUrl() => '$baseUrl$_testConnection';
   static String devSeedLoadPresetDataUrl() => '$baseUrl$_devSeedLoadPresetData';

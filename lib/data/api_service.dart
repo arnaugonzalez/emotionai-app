@@ -139,6 +139,22 @@ class ApiService {
     );
   }
 
+  Future<void> postMobileLogs(List<Map<String, dynamic>> logs) async {
+    if (logs.isEmpty) return;
+    try {
+      await _dio.post(
+        ApiConfig.mobileLogsUrl(),
+        data: logs,
+        options: Options(headers: await _getHeaders()),
+      );
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
+    }
+  }
+
   // Emotional Records
   Future<EmotionalRecord> createEmotionalRecord(EmotionalRecord record) async {
     _logger.i(
