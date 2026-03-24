@@ -263,11 +263,13 @@ class CalendarEventsProvider extends ChangeNotifier {
         onError: (e) {
           logger.w('CalendarWS: error — $e');
           _wsConnected = false;
+          notifyListeners();
           _scheduleReconnect();
         },
         onDone: () {
           logger.w('CalendarWS: connection closed');
           _wsConnected = false;
+          notifyListeners();
           _scheduleReconnect();
         },
         cancelOnError: false,
@@ -275,6 +277,7 @@ class CalendarEventsProvider extends ChangeNotifier {
     } catch (e) {
       logger.e('CalendarWS: connect failed — $e');
       _wsConnected = false;
+      notifyListeners();
       _scheduleReconnect();
     }
   }
