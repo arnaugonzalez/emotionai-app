@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:emotion_ai/data/models/breathing_session.dart';
 import 'package:emotion_ai/data/models/emotional_record.dart';
 import 'package:emotion_ai/config/api_config.dart';
 import 'package:emotion_ai/utils/data_validator.dart';
+import 'package:emotion_ai/core/sync/sync_manager.dart';
 import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -86,6 +88,20 @@ class CalendarEventsProvider extends ChangeNotifier {
   WebSocketChannel? _ws;
   bool _wsConnected = false;
   AuthApi? _auth;
+
+  // Reconnect state
+  bool _disposed = false;
+  int _attemptCount = 0;
+  Timer? _reconnectTimer;
+  static const List<Duration> _backoffTable = [
+    Duration(seconds: 1),
+    Duration(seconds: 2),
+    Duration(seconds: 4),
+    Duration(seconds: 8),
+    Duration(seconds: 16),
+    Duration(seconds: 30), // cap
+  ];
+  StreamSubscription<SyncState>? _connectivitySub;
 
   /// Fetch events with comprehensive validation and error handling
   Future<void> fetchEvents() async {
@@ -211,33 +227,82 @@ class CalendarEventsProvider extends ChangeNotifier {
   }
 
   Future<void> connectRealtime(AuthApi auth) async {
+    _auth = auth;
+    _disposed = false;
+    _attemptCount = 0;
+    await _doConnect();
+    _connectivitySub?.cancel();
+    _connectivitySub = SyncManager().stateStream.listen((state) {
+      if (state.isOnline && !_wsConnected && !_disposed) {
+        logger.i('CalendarWS: network restored — reconnecting immediately');
+        _reconnectTimer?.cancel();
+        _attemptCount = 0;
+        _reconnect();
+      }
+    });
+  }
+
+  Future<void> _doConnect() async {
+    if (_disposed || _auth == null) return;
     try {
-      _auth = auth;
-      final token = await auth.getValidAccessToken();
-      if (token == null) return;
-      final wsBase =
-          ApiConfig.wsBaseUrl; // can be overridden by --dart-define=WS_BASE_URL
-      final uri = Uri.parse('$wsBase/ws/calendar?token=$token');
+      final token = await _auth!.getValidAccessToken();
+      if (token == null) {
+        logger.w('CalendarWS: no token — skipping connect');
+        return;
+      }
+      final uri = Uri.parse('${ApiConfig.wsBaseUrl}/ws/calendar?token=$token');
       _ws = WebSocketChannel.connect(uri);
       _wsConnected = true;
+      _attemptCount = 0;
+      logger.i('CalendarWS: connected');
       _ws!.stream.listen(
         (data) async {
-          // For now, on any calendar event, refresh data
           await fetchEvents();
         },
         onError: (e) {
+          logger.w('CalendarWS: error — $e');
           _wsConnected = false;
+          _scheduleReconnect();
         },
         onDone: () {
+          logger.w('CalendarWS: connection closed');
           _wsConnected = false;
+          _scheduleReconnect();
         },
+        cancelOnError: false,
       );
     } catch (e) {
+      logger.e('CalendarWS: connect failed — $e');
       _wsConnected = false;
+      _scheduleReconnect();
     }
   }
 
+  void _scheduleReconnect() {
+    if (_disposed || _auth == null) return;
+    final idx = _attemptCount.clamp(0, _backoffTable.length - 1);
+    final delay = _backoffTable[idx];
+    _attemptCount++;
+    logger.i('CalendarWS: scheduling reconnect #$_attemptCount in ${delay.inSeconds}s');
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(delay, _reconnect);
+  }
+
+  void _reconnect() {
+    if (_disposed || _auth == null) return;
+    try {
+      _ws?.sink.close(ws_status.normalClosure);
+    } catch (_) {}
+    _ws = null;
+    _doConnect();
+  }
+
   void disposeRealtime() {
+    _disposed = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _connectivitySub?.cancel();
+    _connectivitySub = null;
     try {
       _ws?.sink.close(ws_status.normalClosure);
     } catch (_) {}
