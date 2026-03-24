@@ -11,6 +11,7 @@ import 'package:logger/logger.dart';
 import 'package:dio/dio.dart';
 import '../../config/api_config.dart';
 import '../../data/api_service.dart';
+import '../../shared/logging/mobile_logger.dart';
 import '../../shared/services/sqlite_helper.dart';
 import '../../data/models/emotional_record.dart';
 import '../../data/models/breathing_session.dart';
@@ -212,6 +213,7 @@ class SyncManager {
       );
 
       logger.i('✅ Force sync completed successfully');
+      unawaited(MobileLogger.instance.flush(_apiService));
       return true;
     } catch (e) {
       logger.e('❌ Force sync failed: $e');

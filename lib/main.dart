@@ -10,6 +10,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
 import 'shared/services/secure_env_service.dart';
 import 'shared/providers/app_providers.dart';
+import 'shared/logging/mobile_logger.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/auth_provider.dart';
 
@@ -102,6 +103,10 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       const FlutterSecureStorage().write(key: 'pin_verified', value: 'false');
+    }
+    if (state == AppLifecycleState.resumed) {
+      final apiService = ref.read(apiServiceProvider);
+      MobileLogger.instance.flush(apiService).ignore();
     }
   }
 
