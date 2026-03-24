@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:emotion_ai/utils/color_utils.dart';
 import './events/offline_calendar_provider.dart';
+import 'package:emotion_ai/features/auth/auth_provider.dart' show realtimeCalendarProvider;
 
 import 'package:table_calendar/table_calendar.dart';
 import 'package:logger/logger.dart';
@@ -332,6 +333,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     final calendarState = ref.watch(offlineCalendarProvider);
+    final wsProvider = ref.watch(realtimeCalendarProvider);
 
     if (calendarState.state == CalendarLoadState.loading) {
       return const Center(child: CircularProgressIndicator());
@@ -409,6 +411,26 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             const SizedBox(height: 8),
             const GradientAppBar(title: 'Calendar'),
             const SizedBox(height: 8),
+            if (wsProvider.isReconnecting)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                color: Colors.amber.shade100,
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amber),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Reconnecting\u2026',
+                      style: TextStyle(color: Colors.amber.shade900, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
             ThemedCard(
               child: PrimaryGradientButton(
                 onPressed: _isLoadingPresets ? null : _loadPresetData,
