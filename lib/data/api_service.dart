@@ -429,6 +429,82 @@ class ApiService {
     }
   }
 
+  // PUT — Update Emotional Record
+  Future<void> updateEmotionalRecord(String id, EmotionalRecord record) async {
+    try {
+      await _dio.put(
+        ApiConfig.emotionalRecordUrl(id),
+        data: record.toJson(),
+        options: Options(headers: await _getHeaders()),
+      );
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
+    } catch (e) {
+      _logger.e('Error updating emotional record $id: $e');
+      throw ApiExceptionFactory.fromException(e);
+    }
+  }
+
+  // PUT — Update Breathing Session
+  Future<void> updateBreathingSession(String id, BreathingSessionData session) async {
+    try {
+      await _dio.put(
+        ApiConfig.breathingSessionUrl(id),
+        data: session.toJson(),
+        options: Options(headers: await _getHeaders()),
+      );
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
+    } catch (e) {
+      _logger.e('Error updating breathing session $id: $e');
+      throw ApiExceptionFactory.fromException(e);
+    }
+  }
+
+  // PUT — Update Breathing Pattern
+  Future<void> updateBreathingPattern(String id, BreathingPattern pattern) async {
+    try {
+      await _dio.put(
+        ApiConfig.breathingPatternUrl(id),
+        data: pattern.toJson(),
+        options: Options(headers: await _getHeaders()),
+      );
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
+    } catch (e) {
+      _logger.e('Error updating breathing pattern $id: $e');
+      throw ApiExceptionFactory.fromException(e);
+    }
+  }
+
+  // PUT — Update Custom Emotion
+  Future<void> updateCustomEmotion(String id, CustomEmotion emotion) async {
+    try {
+      await _dio.put(
+        ApiConfig.customEmotionUrl(id),
+        data: emotion.toJson(),
+        options: Options(headers: await _getHeaders()),
+      );
+    } on DioException catch (e) {
+      throw ApiExceptionFactory.fromResponse(
+        e.response?.statusCode ?? 0,
+        jsonEncode(e.response?.data),
+      );
+    } catch (e) {
+      _logger.e('Error updating custom emotion $id: $e');
+      throw ApiExceptionFactory.fromException(e);
+    }
+  }
+
   // User Limitations (from backend)
   Future<UserLimitations> getUserLimitations() async {
     try {

@@ -361,40 +361,34 @@ class SyncManager {
     }
   }
 
-  // TODO(XC-001-followup): _handleUpdate currently calls createX POST endpoints instead of
-  // the correct PUT/PATCH endpoints. This causes duplicate records on every offline edit
-  // of a synced record. Fix requires PUT endpoints on the API first (not yet implemented).
-  // Tracked as the UPDATE half of XC-001. Do not remove this comment until PUT endpoints exist.
-  /// Handle update operation
+  /// Handle update operation — calls backend PUT endpoints for each resource type.
   Future<void> _handleUpdate(SyncItem item) async {
     switch (item.type) {
       case 'emotional_record':
         final record = item.data as EmotionalRecord;
-        await _apiService.createEmotionalRecord(record);
-        if (record.id != null) {
-          await _sqliteHelper.markEmotionalRecordAsSynced(int.parse(record.id!));
-        }
+        if (record.id == null) throw Exception('Cannot update record without id');
+        await _apiService.updateEmotionalRecord(record.id!, record);
+        await _sqliteHelper.markEmotionalRecordAsSynced(int.parse(record.id!));
         break;
 
       case 'breathing_session':
         final session = item.data as BreathingSessionData;
-        await _apiService.createBreathingSession(session);
-        if (session.id != null) {
-          await _sqliteHelper.markBreathingSessionAsSynced(int.parse(session.id!));
-        }
+        if (session.id == null) throw Exception('Cannot update session without id');
+        await _apiService.updateBreathingSession(session.id!, session);
+        await _sqliteHelper.markBreathingSessionAsSynced(int.parse(session.id!));
         break;
 
       case 'breathing_pattern':
         final pattern = item.data as BreathingPattern;
-        await _apiService.createBreathingPattern(pattern);
-        if (pattern.id != null) {
-          await _sqliteHelper.markBreathingPatternAsSynced(int.parse(pattern.id!));
-        }
+        if (pattern.id == null) throw Exception('Cannot update pattern without id');
+        await _apiService.updateBreathingPattern(pattern.id!, pattern);
+        await _sqliteHelper.markBreathingPatternAsSynced(int.parse(pattern.id!));
         break;
 
       case 'custom_emotion':
         final emotion = item.data as CustomEmotion;
-        await _apiService.createCustomEmotion(emotion);
+        if (emotion.id == null) throw Exception('Cannot update emotion without id');
+        await _apiService.updateCustomEmotion(emotion.id!.toString(), emotion);
         break;
 
       default:
