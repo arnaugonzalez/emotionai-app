@@ -195,6 +195,10 @@ class OfflineDataService {
         }
       }
 
+      // Sync pending deletes — push soft-deleted records to backend DELETE
+      // endpoints, then hard-delete locally on success.
+      await _syncPendingDeletes();
+
       logger.i('Unsynced data sync completed');
     } catch (e) {
       logger.e('Error syncing unsynced data: $e');
@@ -206,6 +210,79 @@ class OfflineDataService {
     final b = await _sqliteHelper.getUnsyncedBreathingSessions();
     final c = await _sqliteHelper.getUnsyncedBreathingPatterns();
     return a.length + b.length + c.length;
+  }
+
+  /// Push soft-deleted records to backend DELETE endpoints.
+  /// On success (or 404 = already gone), hard-delete locally.
+  Future<void> _syncPendingDeletes() async {
+    // Emotional records
+    final pendingER = await _sqliteHelper.getPendingDeleteEmotionalRecords();
+    for (final row in pendingER) {
+      final id = row['id'];
+      if (id == null) continue;
+      try {
+        await _apiService.deleteEmotionalRecord(id.toString());
+      } on DioException catch (e) {
+        if (e.response?.statusCode != 404) {
+          logger.e('Failed to delete emotional record $id remotely: $e');
+          continue;
+        }
+        // 404 = already gone on backend — safe to hard-delete locally
+      }
+      await _sqliteHelper.hardDeleteEmotionalRecord(id as int);
+      _mobileLogger.info('sync.delete', {'type': 'emotional_record', 'id': id});
+    }
+
+    // Breathing sessions
+    final pendingBS = await _sqliteHelper.getPendingDeleteBreathingSessions();
+    for (final row in pendingBS) {
+      final id = row['id'];
+      if (id == null) continue;
+      try {
+        await _apiService.deleteBreathingSession(id.toString());
+      } on DioException catch (e) {
+        if (e.response?.statusCode != 404) {
+          logger.e('Failed to delete breathing session $id remotely: $e');
+          continue;
+        }
+      }
+      await _sqliteHelper.hardDeleteBreathingSession(id as int);
+      _mobileLogger.info('sync.delete', {'type': 'breathing_session', 'id': id});
+    }
+
+    // Breathing patterns
+    final pendingBP = await _sqliteHelper.getPendingDeleteBreathingPatterns();
+    for (final row in pendingBP) {
+      final id = row['id'];
+      if (id == null) continue;
+      try {
+        await _apiService.deleteBreathingPattern(id.toString());
+      } on DioException catch (e) {
+        if (e.response?.statusCode != 404) {
+          logger.e('Failed to delete breathing pattern $id remotely: $e');
+          continue;
+        }
+      }
+      await _sqliteHelper.hardDeleteBreathingPattern(id as int);
+      _mobileLogger.info('sync.delete', {'type': 'breathing_pattern', 'id': id});
+    }
+
+    // Custom emotions
+    final pendingCE = await _sqliteHelper.getPendingDeleteCustomEmotions();
+    for (final row in pendingCE) {
+      final id = row['id'];
+      if (id == null) continue;
+      try {
+        await _apiService.deleteCustomEmotion(id.toString());
+      } on DioException catch (e) {
+        if (e.response?.statusCode != 404) {
+          logger.e('Failed to delete custom emotion $id remotely: $e');
+          continue;
+        }
+      }
+      await _sqliteHelper.hardDeleteCustomEmotion(id as int);
+      _mobileLogger.info('sync.delete', {'type': 'custom_emotion', 'id': id});
+    }
   }
 
   Future<void> _syncWithBackoff<T>({

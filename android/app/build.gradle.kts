@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "arnaugdelm.emotion_ai"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "27.1.12297006"
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11

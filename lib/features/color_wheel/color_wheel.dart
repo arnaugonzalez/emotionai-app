@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:emotion_ai/data/models/custom_emotion.dart';
 import 'package:emotion_ai/data/models/emotional_record.dart';
 import 'package:emotion_ai/features/auth/auth_provider.dart';
+import 'package:emotion_ai/shared/providers/app_providers.dart' show apiServiceProvider;
 import 'package:emotion_ai/utils/color_utils.dart';
 import '../../features/custom_emotion/custom_emotion_dialog.dart';
 import 'package:logger/logger.dart';

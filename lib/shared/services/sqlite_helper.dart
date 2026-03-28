@@ -697,6 +697,27 @@ class SQLiteHelper {
     await db.delete('custom_emotions', where: 'id = ?', whereArgs: [id]);
   }
 
+  /// Get all records pending remote deletion (soft-deleted but not yet synced).
+  Future<List<Map<String, dynamic>>> getPendingDeleteEmotionalRecords() async {
+    final db = await database;
+    return db.query('emotional_records', where: 'deleted_at IS NOT NULL');
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingDeleteBreathingSessions() async {
+    final db = await database;
+    return db.query('breathing_sessions', where: 'deleted_at IS NOT NULL');
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingDeleteBreathingPatterns() async {
+    final db = await database;
+    return db.query('breathing_patterns', where: 'deleted_at IS NOT NULL');
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingDeleteCustomEmotions() async {
+    final db = await database;
+    return db.query('custom_emotions', where: 'deleted_at IS NOT NULL');
+  }
+
   // Sync conflict tracking table creation
   Future<void> createSyncConflictsTable() async {
     final db = await database;

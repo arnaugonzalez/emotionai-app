@@ -5,6 +5,7 @@ import 'package:emotion_ai/shared/widgets/rating_modal.dart';
 import 'dart:async';
 import 'package:emotion_ai/data/models/breathing_pattern.dart';
 import 'package:emotion_ai/features/auth/auth_provider.dart';
+import 'package:emotion_ai/shared/providers/app_providers.dart' show apiServiceProvider;
 
 class BreathingSessionScreen extends ConsumerStatefulWidget {
   final BreathingPattern pattern;
